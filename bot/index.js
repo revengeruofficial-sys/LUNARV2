@@ -5629,4 +5629,4 @@ const giveawayBlacklist = new Map();
               saveData();
             }
 
-            client.login(TOKEN);
+                    client.login(process.env.TOKEN);
