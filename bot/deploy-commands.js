@@ -190,6 +190,30 @@ const commands = [
       .setRequired(true)
   ),
   new SlashCommandBuilder()
+  .setName("addpoints")
+  .setDescription("Add staff points")
+
+  .addUserOption(option =>
+    option
+      .setName("user")
+      .setDescription("Staff member")
+      .setRequired(true)
+  )
+
+  .addIntegerOption(option =>
+    option
+      .setName("amount")
+      .setDescription("Points amount")
+      .setRequired(true)
+  )
+
+  .addStringOption(option =>
+    option
+      .setName("reason")
+      .setDescription("Reason")
+      .setRequired(false)
+  ),
+  new SlashCommandBuilder()
   .setName("help")
   .setDescription("View Lunar bot commands")
 
