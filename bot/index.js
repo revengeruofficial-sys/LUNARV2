@@ -4718,7 +4718,7 @@ const giveawayBlacklist = new Map();
                         ephemeral: true
                       });
                     }
-                  else {
+                  if (giveawayBlacklist.has(interaction.user.id)) {
 
                     return interaction.reply({
                       embeds: [
