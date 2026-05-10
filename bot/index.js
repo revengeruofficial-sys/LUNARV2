@@ -886,7 +886,9 @@ const giveawayBlacklist = new Map();
                       allowed = true;
                     }
 
-                    // 🛡️ HEAD MOD LIMITED ROLES
+                      const separatorRole =
+                        newMember.guild.roles.cache.get("1500366242123485200");
+                      // 🛡️ HEAD MOD LIMITED ROLES
                     else if (
 
                       executor.roles.cache.has(
@@ -925,34 +927,7 @@ const giveawayBlacklist = new Map();
                       }
                     }
 
-                  // 🛡️ HEAD MOD
-                  else if (
-
-                    executor.roles.cache.has(
-                      "1500366242123485196"
-                    )
-
-                  ) {
-
-                    allowed = true;
-
-                    for (
-                      const role of addedRoles.values()
-                    ) {
-
-                      // ❌ ABOVE SEPARATOR
-                      if (
-
-                        role.position >=
-                        separatorRole.position
-
-                      ) {
-
-                        allowed = false;
-                        break;
-                      }
-                    }
-                  }
+                  
 
                   // ✅ ALLOWED
                   if (allowed) return;
