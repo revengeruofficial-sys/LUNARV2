@@ -1648,10 +1648,10 @@ const giveawayBlacklist = new Map();
                       users: [],
                       entryMap: {},
                       winnerCount,
-                  claimTime,
-                  prize, // 🔥 ADD THIS
-                  channel: message.channel,
-                  ended: false,
+                      claimTime,
+                      prize,
+                      channel: message.channel,
+                      channelId: message.channel.id,
                       ended: false,
                       lastWinner: null,
                       allWinners: [],
@@ -4718,7 +4718,7 @@ const giveawayBlacklist = new Map();
                         ephemeral: true
                       });
                     }
-                  } {
+                  else {
 
                     return interaction.reply({
                       embeds: [
