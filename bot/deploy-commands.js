@@ -127,15 +127,45 @@ const commands = [
       )
 
       // 🎭 REQUIRED ROLE
-      .addRoleOption(option =>
-        option
-          .setName("requiredrole")
-          .setDescription(
-            "Required role to join"
-          )
-          .setRequired(false)
+  .addRoleOption(option =>
+    option
+      .setName("requiredrole")
+      .setDescription(
+        "Required role to join"
       )
-  ),
+      .setRequired(false)
+  )
+  )
+
+                 .addSubcommand(sub =>
+                   sub
+                     .setName("edit")
+                     .setDescription("Edit an ongoing giveaway")
+                     .addStringOption(option =>
+                       option
+                         .setName("messageid")
+                         .setDescription("Giveaway message ID")
+                         .setRequired(true)
+                     )
+                 )
+
+                 .addSubcommand(sub =>
+                   sub
+                     .setName("removeuser")
+                     .setDescription("Remove a user from an active giveaway")
+                     .addStringOption(option =>
+                       option
+                         .setName("messageid")
+                         .setDescription("Giveaway message ID")
+                         .setRequired(true)
+                     )
+                     .addUserOption(option =>
+                       option
+                         .setName("user")
+                         .setDescription("User to remove")
+                         .setRequired(true)
+                     )
+                 ),
   new SlashCommandBuilder()
   .setName("strike")
   .setDescription("Strike a staff member")
@@ -213,6 +243,29 @@ const commands = [
       .setDescription("Reason")
       .setRequired(false)
   ),
+  new SlashCommandBuilder()
+    .setName("staff")
+    .setDescription("Staff profile and management")
+    .addSubcommand(sub =>
+      sub
+        .setName("profile")
+        .setDescription("View a staff profile")
+        .addUserOption(option =>
+          option.setName("user").setDescription("Staff user").setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("resetmonth")
+        .setDescription("Reset monthly staff points")
+        .addBooleanOption(option =>
+          option.setName("confirm").setDescription("Confirm monthly reset").setRequired(true)
+        )
+    ),
+
+  new SlashCommandBuilder()
+    .setName("health")
+    .setDescription("Check bot health and configuration"),
   new SlashCommandBuilder()
   .setName("help")
   .setDescription("View Lunar bot commands")

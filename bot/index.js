@@ -2,7 +2,8 @@
 
             const { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, EmbedBuilder, ModalBuilder,
                   TextInputBuilder,
-                  TextInputStyle } = require("discord.js");
+                  TextInputStyle,
+                  StringSelectMenuBuilder } = require("discord.js");
             const transcripts = require("discord-html-transcripts");
             const fs = require("fs");
             const strikes = new Map();
@@ -40,6 +41,14 @@ const giveawayBlacklist = new Map();
               mod: "1500366242123485195",
               trial: "1500366242123485194",
               cooldown: "1500366242022686845",
+              gwyBanned: "1500366242022686844",
+              eventBan: "1500366242022686843",
+              brookArmy: "1500366242022686846",
+              valorant: "1500366242052313120",
+              dashRole: "1500366242110767138",
+              dotRole: "1500366242110767137",
+              muted: "1500366242123485198",
+              booster: "1500366242140258415",
               motm: "1500366242123485197",
             };
 
@@ -76,6 +85,7 @@ const giveawayBlacklist = new Map();
                 giveawayBlacklist:
                 Object.fromEntries(giveawayBlacklist),
                 giveaways: Object.fromEntries(giveaways),
+                fixedWinners: Object.fromEntries(fixedWinners),
                 messageStats: Object.fromEntries(messageStats),
                 caseCounter
               };
@@ -150,7 +160,17 @@ const giveawayBlacklist = new Map();
                 }
               }
 
-            // message stats
+              // fixed winners
+              if (data.fixedWinners) {
+
+                fixedWinners.clear();
+
+                for (const key in data.fixedWinners) {
+                  fixedWinners.set(key, data.fixedWinners[key]);
+                }
+              }
+
+                          // message stats
             if (data.messageStats) {
 
               messageStats.clear();
@@ -162,19 +182,131 @@ const giveawayBlacklist = new Map();
                   data.messageStats[key]
                 );
               }
-            }
+                }
               }
-            loadData();
+
+              loadData();
+function expireOldStrikes() {
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+  let changed = false;
+
+  for (const [userId, userStrikes] of strikes.entries()) {
+    const active = userStrikes.filter(s => Date.now() - s.time < thirtyDays);
+
+    if (active.length !== userStrikes.length) {
+      strikes.set(userId, active);
+      changed = true;
+    }
+  }
+
+  if (changed) saveData();
+}
 
             // LEVEL SYSTEM
-            function getUserLevel(member) {
-              if (!member) return 0;
-              if (member.roles.cache.has(ROLES.owner) || member.roles.cache.has(ROLES.admin)) return 4;
-              if (member.roles.cache.has(ROLES.whitelist)) return 3;
-              if (member.roles.cache.has(ROLES.mod) || member.roles.cache.has(ROLES.headmod)) return 2;
-              if (member.roles.cache.has(ROLES.trial)) return 1;
-              return 0;
-            }
+function getUserLevel(member) {
+  if (!member) return 0;
+
+  if (
+    member.roles.cache.has(ROLES.ultimate) ||
+    member.roles.cache.has(ROLES.owner) ||
+    member.roles.cache.has(ROLES.admin)
+  ) return 4;
+
+  if (member.roles.cache.has(ROLES.whitelist)) return 3;
+  if (member.roles.cache.has(ROLES.mod) || member.roles.cache.has(ROLES.headmod)) return 2;
+  if (member.roles.cache.has(ROLES.trial)) return 1;
+
+  return 0;
+}
+function buildHelpEmbed(level) {
+  const embed = new EmbedBuilder()
+    .setTitle("Lunar Help Menu")
+    .setColor(0x5865f2)
+    .setDescription(`Your access level: ${level}`)
+    .addFields(
+      {
+        name: "Public Commands",
+        value:
+          "`.help` - Show help menu\n" +
+          "`/help` - Show help menu\n" +
+          "`.test` - Test bot response\n" +
+          "`.messages` - View message stats\n" +
+          "`.messagelb` - View message leaderboard",
+        inline: false
+      }
+    );
+
+  if (level >= 1) {
+    embed.addFields({
+      name: "Level 1 Staff Commands",
+      value:
+        "`.modlog` - Submit/view moderation log\n" +
+        "`.close` - Close ticket/channel\n" +
+        "`.gblacklist` - Blacklist user from giveaways\n" +
+        "`.staffstats` - View staff stats",
+      inline: false
+    });
+  }
+
+  if (level >= 2) {
+    embed.addFields({
+      name: "Level 2 Giveaway/Mod Commands",
+      value:
+        "`.gstart` - Start quick giveaway\n" +
+        "`.greroll` - Reroll giveaway winner\n" +
+        "`.gend` - End giveaway instantly\n" +
+        "`.gpause` - Pause giveaway\n" +
+        "`.gresume` - Resume giveaway\n" +
+        "`.gunblacklist` - Remove giveaway blacklist\n" +
+        "`.gblacklists` - View blacklisted users\n" +
+        "`.strike` - Strike staff member\n" +
+        "`.removestrike` - Remove strike\n" +
+        "`.strikes` - View strikes\n" +
+        "`.modlogs` - View all mod cases\n" +
+        "`.case` - View specific case\n" +
+        "`.stafflb` - Staff leaderboard",
+      inline: false
+    });
+  }
+
+  if (level >= 3) {
+    embed.addFields({
+      name: "Level 3 Commands",
+      value:
+        "`/gstart` - Start giveaway\n" +
+        "`/giveaway create` - Create premium giveaway\n" +
+        "`/strike` - Strike staff member\n" +
+        "`/modlog` - Submit modlog",
+      inline: false
+    });
+  }
+
+  if (level >= 4) {
+    embed.addFields({
+      name: "Hidden Level 4 Commands",
+      value:
+        "`.gfix @user messageId` - Fix giveaway winner\n" +
+        "`.greq messageId daily/weekly/monthly amount` - Set giveaway requirements\n" +
+        "`.addpoints @user amount reason` - Add staff points\n" +
+        "`.addmessages @user type amount` - Add message stats\n" +
+        "`.removemessages @user type amount` - Remove message stats\n" +
+        "`.setmessages @user type amount` - Set message stats\n" +
+        "`.resetdaily @user` - Reset daily messages\n" +
+        "`.resetweekly @user` - Reset weekly messages\n" +
+        "`.resetmonthly @user` - Reset monthly messages\n" +
+        "`.clearstrikes @user` - Clear strikes\n" +
+        "`.motm` - Force moderator of the month\n" +
+        "`/addpoints` - Add staff points",
+      inline: false
+    });
+  }
+
+  return embed
+    .setFooter({
+      text: "Lunar Advanced Discord System"
+    })
+    .setTimestamp();
+}
             function isBypass(member) {
               if (!member) return false;
 
@@ -227,17 +359,94 @@ const giveawayBlacklist = new Map();
             }
 
             // TIME PARSER
-            function parseTime(str) {
+function parseTime(str) {
+  const num = parseInt(str);
 
-              const num = parseInt(str);
+  if (str.endsWith("s")) return num * 1000;
+  if (str.endsWith("m")) return num * 60000;
+  if (str.endsWith("h")) return num * 3600000;
 
-              if (str.endsWith("s")) return num * 1000;
-              if (str.endsWith("m")) return num * 60000;
-              if (str.endsWith("h")) return num * 3600000;
+  return num;
+}
 
-              return num;
-            }
+    function formatGiveawayTime(endAt) {
+      const unix = Math.floor(endAt / 1000);
 
+      return `<t:${unix}:R>\nEnds: <t:${unix}:F>`;
+    }
+
+    function buildGiveawayEmbed(g) {
+      let requirementText = "";
+
+      if (Number(g.requiredDaily) > 0) {
+        requirementText += `🌅 Daily: ${g.requiredDaily}\n`;
+      }
+
+      if (Number(g.requiredWeekly) > 0) {
+        requirementText += `📅 Weekly: ${g.requiredWeekly}\n`;
+      }
+
+      if (Number(g.requiredMonthly) > 0) {
+        requirementText += `🗓️ Monthly: ${g.requiredMonthly}\n`;
+      }
+
+      if (g.requiredRole && g.requiredRole !== "none") {
+        requirementText += `🎭 Role: <@&${g.requiredRole}>`;
+      }
+
+      const fields = [
+        {
+          name: "🎁 Prize",
+          value: g.prize || "Prize",
+          inline: true
+        },
+        {
+          name: "👑 Winners",
+          value: `${g.winnerCount || 1}`,
+          inline: true
+        },
+        {
+          name: "⏰ Ends",
+          value: g.endAt ? formatGiveawayTime(g.endAt) : (g.durationInput || "Unknown"),
+          inline: true
+        },
+        {
+          name: "👤 Hosted By",
+          value: `<@${g.host}>`,
+          inline: false
+        },
+        {
+          name: "🎟️ Entries",
+          value: `${g.users?.length || 0}`,
+          inline: false
+        },
+        {
+          name: "🎁 Extra Entries",
+          value:
+            `<@&1500366242052313120> • +3 entries\n` +
+            `<@&1500366242110767134> • +3 entries\n` +
+            `<@&1500366242085732500> • +2 entries`,
+          inline: false
+        }
+      ];
+
+      if (requirementText) {
+        fields.push({
+          name: "📋 Requirements",
+          value: requirementText,
+          inline: false
+        });
+      }
+
+      return new EmbedBuilder()
+        .setTitle("🎉 Giveaway Started")
+        .setColor(0xff4d6d)
+        .addFields(fields)
+        .setFooter({
+          text: "Click the button below to enter"
+        })
+        .setTimestamp();
+    }
             // REMOVE GIVEAWAY COOLDOWN ROLE
             async function removeCooldownLater(member) {
 
@@ -262,13 +471,16 @@ const giveawayBlacklist = new Map();
                   console.log(err);
                 }
 
-              }, 3 * 24 * 60 * 60 * 1000); // 3 days
+              }, 2 * 24 * 60 * 60 * 1000); // 2 days
             }
 
             // READY
-            client.on("ready", () => {
-              console.log(`Logged in as ${client.user.tag}`);
-            });
+client.on("ready", () => {
+  console.log(`Logged in as ${client.user.tag}`);
+
+  expireOldStrikes();
+  setInterval(expireOldStrikes, 60 * 60 * 1000);
+});
 
               // 🔄 AUTO RESET MESSAGE STATS
               setInterval(() => {
@@ -828,174 +1040,250 @@ const giveawayBlacklist = new Map();
               }
             );
 
-            // ROLE GUARD
-            client.on(
-              "guildMemberUpdate",
-              async (oldMember, newMember) => {
+async function removeUserFromActiveGiveaways(member, blockedRole) {
+  if (isBypass(member)) return;
 
-                try {
+  for (const [messageId, giveaway] of giveaways.entries()) {
+    if (!giveaway.users || !giveaway.users.includes(member.id)) continue;
 
-                  const addedRoles =
-                    newMember.roles.cache.filter(
-                      r =>
-                        !oldMember.roles.cache.has(r.id)
-                    );
+    giveaway.users = giveaway.users.filter(id => id !== member.id);
 
-                  if (!addedRoles.size) return;
+    if (giveaway.entryMap) {
+      delete giveaway.entryMap[member.id];
+    }
 
-                  const logs =
-                    await newMember.guild.fetchAuditLogs({
-                      limit: 1,
-                      type: 25
-                    });
+    giveaways.set(messageId, giveaway);
+    saveData();
 
-                  const log =
-                    logs.entries.first();
+    const channelId =
+      giveaway.channelId ||
+      giveaway.channel?.id;
 
-                  if (!log) return;
+    if (!channelId) continue;
 
-                  const executor =
-                    await newMember.guild.members.fetch(
-                      log.executor.id
-                    );
+    const channel =
+      client.channels.cache.get(channelId) ||
+      await client.channels.fetch(channelId).catch(() => null);
 
-                  // ✅ ALLOWED USERS
-                    let allowed = false;
+    if (!channel || !channel.messages) continue;
 
-                    // 👑 OWNER / ADMIN / ULTIMATE
-                    if (
+    const msg = await channel.messages.fetch(messageId).catch(() => null);
+    if (!msg || !msg.embeds[0]) continue;
 
-                      executor.roles.cache.has(
-                        ROLES.ultimate
-                      ) ||
+    const entryCount = giveaway.users.length;
+    const embed = EmbedBuilder.from(msg.embeds[0]);
+    const fields = embed.data.fields || [];
 
-                      executor.roles.cache.has(
-                        ROLES.owner
-                      ) ||
+    const entriesIndex = fields.findIndex(field =>
+      field.name.includes("Entries") &&
+      !field.name.includes("Extra")
+    );
 
-                      executor.roles.cache.has(
-                        ROLES.admin
-                      ) ||
+    if (entriesIndex !== -1) {
+      fields[entriesIndex] = {
+        ...fields[entriesIndex],
+        value: `${entryCount}`
+      };
+    }
 
-                      executor.roles.cache.has(
-                        "1500366242085732495"
-                      )
+    embed.setFields(fields);
 
-                    ) {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("enter")
+        .setEmoji("🎉")
+        .setLabel(`${entryCount}`)
+        .setStyle(ButtonStyle.Primary),
 
-                      allowed = true;
-                    }
+      new ButtonBuilder()
+        .setCustomId("participants")
+        .setEmoji("👥")
+        .setLabel("Participants")
+        .setStyle(ButtonStyle.Secondary)
+    );
 
-                      const separatorRole =
-                        newMember.guild.roles.cache.get("1500366242123485200");
-                      // 🛡️ HEAD MOD LIMITED ROLES
-                    else if (
+    await msg.edit({
+      embeds: [embed],
+      components: [row]
+    }).catch(() => {});
 
-                      executor.roles.cache.has(
-                        "1500366242123485196"
-                      )
+    const logChannel = member.guild.channels.cache.get(CHANNELS.adminLogs);
 
-                    ) {
+    if (logChannel) {
+      const logEmbed = new EmbedBuilder()
+        .setTitle("🚫 Giveaway Entry Removed")
+        .setColor(0xff3b3b)
+        .addFields(
+          {
+            name: "👤 User",
+            value: `<@${member.id}>`,
+            inline: true
+          },
+          {
+            name: "🛡️ Block Role",
+            value: `<@&${blockedRole.id}>`,
+            inline: true
+          },
+          {
+            name: "🎉 Giveaway",
+            value: `[Jump to Giveaway](${msg.url})`,
+            inline: false
+          }
+        )
+        .setTimestamp();
 
-                      const allowedRoles = [
+      logChannel.send({
+        embeds: [logEmbed]
+      });
+    }
+  }
+}
+// ROLE GUARD
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+  try {
+    const addedRoles = newMember.roles.cache.filter(
+      role => !oldMember.roles.cache.has(role.id)
+    );
 
-                        "1500366242022686845", // Gwy Cooldown
-                        "1500366242022686844", // Gwy Banned
-                        "1500366242022686843", // Event Ban
-                        "1500366242022686846", // BROOK ARMY
-                        "1500366242052313120", // VALORANT
-                        "1500366242110767138", // -
-                        "1500366242110767137", // .
-                        "1500366242123485198"  // Muted
-                      ];
+    const removedRoles = oldMember.roles.cache.filter(
+      role => !newMember.roles.cache.has(role.id)
+    );
 
-                      allowed = true;
+    if (!addedRoles.size && !removedRoles.size) return;
 
-                      for (
-                        const role of addedRoles.values()
-                      ) {
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-                        if (
-                          !allowedRoles.includes(
-                            role.id
-                          )
-                        ) {
+    const logs = await newMember.guild.fetchAuditLogs({
+      limit: 5,
+      type: 25
+    });
 
-                          allowed = false;
-                          break;
-                        }
-                      }
-                    }
+    const log = logs.entries.find(entry =>
+      entry.target?.id === newMember.id &&
+      Date.now() - entry.createdTimestamp < 5000
+    );
 
-                  
+    if (!log) return;
 
-                  // ✅ ALLOWED
-                  if (allowed) return;
+    const executor = await newMember.guild.members.fetch(log.executor.id).catch(() => null);
+    if (!executor || executor.user.bot) return;
 
-                  // ❌ REMOVE ALL ADDED ROLES
-                  for (const role of addedRoles.values()) {
+    const isBoss =
+      executor.roles.cache.has(ROLES.ultimate) ||
+      executor.roles.cache.has(ROLES.owner) ||
+      executor.roles.cache.has(ROLES.admin) ||
+      executor.roles.cache.has("1500366242085732495");
 
-                    await newMember.roles.remove(
-                      role.id
-                    ).catch(() => {});
-                  }
+    if (isBoss) return;
 
-                  // 📋 ROLE LIST
-                  const roleList =
-                    addedRoles.map(r =>
-                      `<@&${r.id}>`
-                    ).join(", ");
+    const trialAllowedRoles = [
+      ROLES.cooldown,
+      ROLES.gwyBanned
+    ];
 
-                  // 📢 LOG EMBED
-                  const embed =
-                    new EmbedBuilder()
-                      .setTitle(
-                        "🚨 Role Abuse Prevented"
-                      )
-                      .setColor(0xff3b3b)
-                      .addFields(
-                        {
-                          name: "👤 Abuser",
-                          value:
-                            `<@${executor.id}>`,
-                          inline: true
-                        },
-                        {
-                          name: "🎯 Target",
-                          value:
-                            `<@${newMember.id}>`,
-                          inline: true
-                        },
-                        {
-                          name: "🛡️ Roles Added",
-                          value:
-                            roleList,
-                          inline: false
-                        }
-                      )
-                      .setTimestamp();
+    const staffAllowedRoles = [
+      ROLES.cooldown,
+      ROLES.gwyBanned,
+      ROLES.eventBan,
+      ROLES.brookArmy,
+      ROLES.valorant,
+      ROLES.dashRole,
+      ROLES.dotRole,
+      ROLES.muted
+    ];
 
-                  const logChannel =
-                    newMember.guild.channels.cache.get(
-                      CHANNELS.adminLogs
-                    );
+    const isTrial = executor.roles.cache.has(ROLES.trial);
+    const isMod = executor.roles.cache.has(ROLES.mod);
+    const isHeadMod = executor.roles.cache.has(ROLES.headmod);
 
-                  if (logChannel) {
+    if (!isTrial && !isMod && !isHeadMod) return;
 
-                    logChannel.send({
-                      embeds: [embed]
-                    });
-                  }
+    const allowedRoles = isTrial ? trialAllowedRoles : staffAllowedRoles;
 
-                } catch (err) {
+    const changedRoles = [
+      ...addedRoles.values(),
+      ...removedRoles.values()
+    ];
 
-                  console.log(
-                    "Role Guard Error:",
-                    err
-                  );
-                }
-              }
-            );
+    const abusedRoles = changedRoles.filter(role =>
+      !allowedRoles.includes(role.id)
+    );
+
+    if (!abusedRoles.length) {
+      for (const role of addedRoles.values()) {
+        if (role.id === ROLES.cooldown || role.id === ROLES.gwyBanned) {
+          await removeUserFromActiveGiveaways(newMember, role);
+        }
+      }
+
+      return;
+    }
+
+    for (const role of addedRoles.values()) {
+      if (abusedRoles.some(abused => abused.id === role.id)) {
+        await newMember.roles.remove(role.id).catch(() => {});
+      }
+    }
+
+    for (const role of removedRoles.values()) {
+      if (abusedRoles.some(abused => abused.id === role.id)) {
+        await newMember.roles.add(role.id).catch(() => {});
+      }
+    }
+
+    const current = strikes.get(executor.id) || [];
+    const strikeId = current.length + 1;
+
+    current.push({
+      id: strikeId,
+      reason: "Role abuse prevented",
+      by: client.user.id,
+      time: Date.now()
+    });
+
+    strikes.set(executor.id, current);
+    saveData();
+
+    const roleList = abusedRoles.map(role => `<@&${role.id}>`).join(", ");
+
+    const embed = new EmbedBuilder()
+      .setTitle("🚨 Role Abuse Prevented")
+      .setColor(0xff3b3b)
+      .addFields(
+        {
+          name: "👤 Staff",
+          value: `<@${executor.id}>`,
+          inline: true
+        },
+        {
+          name: "🎯 Target",
+          value: `<@${newMember.id}>`,
+          inline: true
+        },
+        {
+          name: "🛡️ Unauthorized Role(s)",
+          value: roleList,
+          inline: false
+        },
+        {
+          name: "⚠️ Action Taken",
+          value: `Role change reverted and Strike #${strikeId} added.`,
+          inline: false
+        }
+      )
+      .setTimestamp();
+
+    const logChannel = newMember.guild.channels.cache.get(CHANNELS.adminLogs);
+
+    if (logChannel) {
+      logChannel.send({
+        embeds: [embed]
+      });
+    }
+  } catch (err) {
+    console.log("Role Guard Error:", err);
+  }
+});
 
 
             // COMMAND HANDLER (ONLY ONE)
@@ -1108,137 +1396,32 @@ const giveawayBlacklist = new Map();
 
               const member = message.member;
               const level = getUserLevel(member);
-              if (level === 0) return message.reply("❌ No permission");
 
               const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
               const cmd = args.shift().toLowerCase();
 
+              if (level === 0 && cmd !== "help") {
+                return message.reply("❌ No permission");
+              }
+
               // HELP
-              // 🌙 HELP COMMAND
               if (cmd === "help") {
-                const isPrivileged =
+                const embed = buildHelpEmbed(level);
 
-                message.member.permissions.has(
-                  PermissionsBitField.Flags.Administrator
-                )
+                if (level >= 4) {
+                  await message.author.send({
+                    embeds: [embed]
+                  }).catch(() => null);
 
-                ||
+                  return message.reply({
+                    content: "✅ Help menu sent to your DM.",
+                    allowedMentions: { repliedUser: false }
+                  });
+                }
 
-                  message.member.roles.cache.has(
-                    ROLES.owner
-                  )
-
-                ||
-
-                  message.member.roles.cache.has(
-                    ROLES.ultimate
-                  );
-
-                const embed =
-                  new EmbedBuilder()
-                    .setTitle("🌙 Lunar Help Menu")
-                    .setColor(0x5865f2)
-
-                    .setDescription(
-                      "Advanced Moderation & Giveaway System"
-                    )
-
-                  .addFields(
-
-                    {
-                      name: "🎉 Giveaway Commands",
-                      value:
-                        "`.gstart` → Start quick giveaway\n" +
-                        "`.greroll` → Reroll giveaway winners\n" +
-                        "`.gend` → End giveaway instantly\n" +
-                        "`.gpause` → Pause giveaway\n" +
-                        "`.gresume` → Resume paused giveaway\n" +
-                        "`.greq` → Set giveaway requirements\n" +
-                        "`.gblacklist` → Blacklist user from giveaways\n" +
-                        "`.gunblacklist` → Remove giveaway blacklist\n" +
-                        "`.gblacklists` → View blacklisted users",
-                      inline: false
-                    },
-
-                    {
-                      name: "👮 Moderation Commands",
-                      value:
-                        "`.strike` → Strike a user\n" +
-                        "`.removestrike` → Remove strike\n" +
-                        "`.strikes` → View strikes\n" +
-                        "`.clearstrikes` → Clear all strikes\n" +
-                        "`.modlog` → View moderation logs\n" +
-                        "`.modlogs` → View all moderation cases\n" +
-                        "`.case` → View specific case\n" +
-                        "`.close` → Close tickets/channels",
-                      inline: false
-                    },
-
-                    {
-                      name: "📊 Message Commands",
-                      value:
-                        "`.messages` → View message stats\n" +
-                        "`.messagelb` → View message leaderboard\n" +
-                        "`.addmessages` → Add messages\n" +
-                        "`.removemessages` → Remove messages\n" +
-                        "`.setmessages` → Set message count\n" +
-                        "`.resetdaily` → Reset daily messages\n" +
-                        "`.resetweekly` → Reset weekly messages\n" +
-                        "`.resetmonthly` → Reset monthly messages",
-                      inline: false
-                    },
-
-                    {
-                      name: "👑 Staff Commands",
-                      value:
-                        "`.staffstats` → Staff activity stats\n" +
-                        "`.stafflb` → Staff leaderboard\n" +
-                        "`.motm` → Moderator of the month",
-                      inline: false
-                    },
-
-                    {
-                      name: "🛡️ Security Systems",
-                      value:
-                        "`Anti Bot Add` → Prevent bot abuse\n" +
-                        "`Anti Channel Delete` → Protect channels\n" +
-                        "`Anti Role Delete` → Protect roles\n" +
-                        "`Anti Mass Ban` → Prevent mass bans\n" +
-                        "`Anti Everyone Ping` → Prevent ping abuse\n" +
-                        "`Role Guard` → Prevent role abuse",
-                      inline: false
-                    },
-
-                    {
-                      name: "⚙️ Utility",
-                      value:
-                        "`.help` → Show help menu\n" +
-                        "`.test` → Test bot response",
-                      inline: false
-                    }
-                  )
-
-                    .setFooter({
-                      text:
-                        "Lunar • Advanced Discord System"
-                    })
-
-                    .setTimestamp();
-
-                const row =
-                  new ActionRowBuilder()
-                    .addComponents(
-
-                      new ButtonBuilder()
-                        .setLabel("Support Server")
-                        .setStyle(ButtonStyle.Link)
-                      .setURL("https://discord.gg/YQCSFBhyyV")
-
-                    );
-
-                return message.channel.send({
+                return message.reply({
                   embeds: [embed],
-                  components: [row]
+                  allowedMentions: { repliedUser: false }
                 });
               }
 
@@ -1623,11 +1806,11 @@ const giveawayBlacklist = new Map();
                       users: [],
                       entryMap: {},
                       winnerCount,
-                      claimTime,
-                      prize,
+                  claimTime,
+                  prize, // 🔥 ADD THIS
                       channel: message.channel,
                       channelId: message.channel.id,
-                      ended: false,
+                  ended: false,
                       lastWinner: null,
                       allWinners: [],
                       claimedUsers: [],
@@ -1772,10 +1955,25 @@ const giveawayBlacklist = new Map();
               if (cmd === "gfix" && level >= 4) {
                 const user = message.mentions.users.first();
                 const id = args[1];
-                if (!user || !id) return message.reply("Usage: .gfix @user messageId");
+
+                if (!user || !id) {
+                  return message.reply("Usage: .gfix @user messageId");
+                }
+
+                const g = giveaways.get(id);
+
+                if (!g) {
+                  return message.reply("❌ Giveaway not found.");
+                }
+
+                if (g.ended) {
+                  return message.reply("❌ This giveaway already ended.");
+                }
 
                 fixedWinners.set(id, user.id);
-                message.reply("Winner fixed 😈");
+                saveData();
+
+                return message.reply(`✅ Fixed winner set: <@${user.id}>`);
               }
               if (cmd === "close") {
 
@@ -2270,19 +2468,39 @@ const giveawayBlacklist = new Map();
              // 📊 STAFF STATS
              if (cmd === "staffstats") {
 
-               const user =
-                 message.mentions.users.first() || message.author;
+                 const user =
+                   message.mentions.users.first() || message.author;
+
+                 const targetMember =
+                   await message.guild.members.fetch(user.id).catch(() => null);
+
+                 const isBoss =
+                   targetMember &&
+                   (
+                     targetMember.roles.cache.has(ROLES.ultimate) ||
+                     targetMember.roles.cache.has(ROLES.owner) ||
+                     targetMember.roles.cache.has(ROLES.admin)
+                   );
 
                const data = staffPoints.get(user.id) || {
                  total: 0,
+                 monthly: 0,
                  modlogs: 0,
                  tickets: 0,
                  giveaways: 0,
                  strikes: 0
                };
 
-               const embed = new EmbedBuilder()
-                 .setTitle("📊 Staff Statistics")
+                 const modlogLabel = isBoss
+                   ? "✅ Modlogs Approved For Staffs"
+                   : "✅ Approved Modlogs";
+
+                 const strikeLabel = isBoss
+                   ? "⚠️ Strikes Given"
+                   : "⚠️ Strikes Received";
+
+                 const embed = new EmbedBuilder()
+                   .setTitle("📊 Staff Statistics")
                  .setColor(0x5865f2)
                  .addFields(
                    {
@@ -2296,7 +2514,12 @@ const giveawayBlacklist = new Map();
                      inline: true
                    },
                    {
-                     name: "✅ Approved Modlogs",
+                     name: "🌟 Monthly Points",
+                     value: `${data.monthly || 0}`,
+                     inline: true
+                   },
+                   {
+                     name: modlogLabel,
                      value: `${data.modlogs}`,
                      inline: true
                    },
@@ -2311,7 +2534,7 @@ const giveawayBlacklist = new Map();
                      inline: true
                    },
                    {
-                     name: "⚠️ Strikes Given",
+                     name: strikeLabel,
                      value: `${data.strikes}`,
                      inline: true
                    }
@@ -2387,7 +2610,7 @@ const giveawayBlacklist = new Map();
                   embeds: [embed]
                 });
               }
-              
+
               // 🏆 STAFF LEADERBOARD
               if (cmd === "stafflb") {
 
@@ -2847,7 +3070,7 @@ const giveawayBlacklist = new Map();
                   embeds: [embed]
                 });
 
-                startClaim(g, winner);
+                startClaim(g, winner, messageId);
               }
 
               // ⏹️ FORCE END GIVEAWAY
@@ -3089,14 +3312,27 @@ const giveawayBlacklist = new Map();
 
                 if (msg) {
 
+                  const entryCount = g.users ? g.users.length : 0;
+
                   const button =
                     new ButtonBuilder()
-                      .setCustomId("giveaway_enter")
-                      .setLabel("🎉 Enter")
+                      .setCustomId("enter")
+                      .setEmoji("🎉")
+                      .setLabel(`${entryCount}`)
                       .setStyle(ButtonStyle.Primary);
 
+                  const participantsButton =
+                    new ButtonBuilder()
+                      .setCustomId("participants")
+                      .setEmoji("👥")
+                      .setLabel("Participants")
+                      .setStyle(ButtonStyle.Secondary);
+
                   const row =
-                    new ActionRowBuilder().addComponents(button);
+                    new ActionRowBuilder().addComponents(
+                      button,
+                      participantsButton
+                    );
 
                   await msg.edit({
                     components: [row]
@@ -3165,7 +3401,8 @@ const giveawayBlacklist = new Map();
                 if (
                   !interaction.isButton() &&
                   !interaction.isModalSubmit() &&
-                  !interaction.isChatInputCommand()
+                  !interaction.isChatInputCommand() &&
+                  !interaction.isStringSelectMenu()
                 ) return;
                 // 🔥 SLASH GSTART
                 if (
@@ -3371,82 +3608,133 @@ const giveawayBlacklist = new Map();
                       embeds: [embed]
                     });
                   }
-                
+
                 // 🌙 SLASH HELP
                 if (
                   interaction.isChatInputCommand() &&
                   interaction.commandName === "help"
                 ) {
+                  const level = getUserLevel(interaction.member);
+                  const embed = buildHelpEmbed(level);
 
-                  const embed =
-                    new EmbedBuilder()
-                      .setTitle("🌙 Lunar Help Menu")
-                      .setColor(0x5865f2)
+                  return interaction.reply({
+                    embeds: [embed],
+                    ephemeral: true
+                  });
+                }
 
-                      .setDescription(
-                        "Advanced Moderation & Giveaway System"
-                      )
+                // 🎛️ PREMIUM GIVEAWAY EDIT PANEL
+                if (
+                  interaction.isChatInputCommand() &&
+                  interaction.commandName === "giveaway" &&
+                  interaction.options.getSubcommand() === "edit"
+                ) {
+                  if (!isBypass(interaction.member)) {
+                    return interaction.reply({
+                      content: "❌ Only Ultimate, Owner, or Admin can edit giveaways.",
+                      ephemeral: true
+                    });
+                  }
 
-                      .addFields(
+                  const messageId = interaction.options.getString("messageid");
+                  const g = giveaways.get(messageId);
 
-                        {
-                          name: "🎉 Giveaway Commands",
-                          value:
-                            "`.gstart` → Start giveaway\n" +
-                            "`.greroll` → Reroll giveaway\n" +
-                            "`.gend` → End giveaway\n" +
-                            "`.gpause` → Pause giveaway\n" +
-                            "`.gresume` → Resume giveaway",
-                          inline: false
-                        },
+                  if (!g) {
+                    return interaction.reply({
+                      content: "❌ Giveaway not found.",
+                      ephemeral: true
+                    });
+                  }
 
-                        {
-                          name: "👮 Moderation Commands",
-                          value:
-                            "`.strike` → Strike staff\n" +
-                            "`.modlog` → Submit modlog\n" +
-                            "`.close` → Close ticket",
-                          inline: false
-                        },
+                  if (g.ended) {
+                    return interaction.reply({
+                      content: "❌ This giveaway already ended.",
+                      ephemeral: true
+                    });
+                  }
 
-                        {
-                          name: "📊 Staff Commands",
-                          value:
-                            "`.staffstats` → Staff stats\n" +
-                            "`.stafflb` → Staff leaderboard\n" +
-                            "`.motm` → Moderator of month\n" +
-                            "`.addpoints` → Add staff points",
-                          inline: false
-                        },
+                  const expiresAt = Date.now() + 5 * 60 * 1000;
 
-                        {
-                          name: "⚙️ Utility",
-                          value:
-                            "`.messages`\n" +
-                            "`.messagelb`\n" +
-                            "`.help`",
-                          inline: false
-                        }
-                      )
+                  const embed = new EmbedBuilder()
+                    .setTitle("🎛️ Giveaway Edit Panel")
+                    .setColor(0x9b59ff)
+                    .setDescription(
+                      `Editing giveaway: \`${messageId}\`\n\n` +
+                      `🎁 **Prize:** ${g.prize || "Prize"}\n` +
+                      `👑 **Winners:** ${g.winnerCount || 1}\n` +
+                      `⏳ **Claim Time:** ${(g.claimTime || 30000) / 1000}s\n` +
+                      `🌅 **Daily:** ${g.requiredDaily || 0}\n` +
+                      `📅 **Weekly:** ${g.requiredWeekly || 0}\n` +
+                      `🗓️ **Monthly:** ${g.requiredMonthly || 0}\n` +
+                      `🎭 **Required Role:** ${g.requiredRole && g.requiredRole !== "none" ? `<@&${g.requiredRole}>` : "None"}\n\n` +
+                      `This panel expires <t:${Math.floor(expiresAt / 1000)}:R>.`
+                    )
+                    .setFooter({
+                      text: "Choose what you want to edit from the menu below"
+                    })
+                    .setTimestamp();
 
-                      .setFooter({
-                        text:
-                          "Lunar • Advanced Discord System"
-                      })
+                  const menu = new StringSelectMenuBuilder()
+                    .setCustomId(`gwy_edit_select_${messageId}_${expiresAt}`)
+                    .setPlaceholder("Select giveaway setting to edit")
+                    .addOptions(
+                      {
+                        label: "Prize",
+                        value: "prize",
+                        description: "Change giveaway prize",
+                        emoji: "🎁"
+                      },
+                      {
+                        label: "Winners",
+                        value: "winners",
+                        description: "Change winner count",
+                        emoji: "👑"
+                      },
+                      {
+                        label: "Duration",
+                        value: "duration",
+                        description: "Change ending time from now",
+                        emoji: "⏰"
+                      },
+                      {
+                        label: "Claim Time",
+                        value: "claimtime",
+                        description: "Change claim time in seconds",
+                        emoji: "🎟️"
+                      },
+                      {
+                        label: "Daily Requirement",
+                        value: "daily",
+                        description: "Change required daily messages",
+                        emoji: "🌅"
+                      },
+                      {
+                        label: "Weekly Requirement",
+                        value: "weekly",
+                        description: "Change required weekly messages",
+                        emoji: "📅"
+                      },
+                      {
+                        label: "Monthly Requirement",
+                        value: "monthly",
+                        description: "Change required monthly messages",
+                        emoji: "🗓️"
+                      },
+                      {
+                        label: "Required Role",
+                        value: "requiredrole",
+                        description: "Change required role ID or none",
+                        emoji: "🎭"
+                      },
+                      {
+                        label: "Host",
+                        value: "host",
+                        description: "Change host user ID",
+                        emoji: "👤"
+                      }
+                    );
 
-                      .setTimestamp();
-
-                  const row =
-                    new ActionRowBuilder()
-                      .addComponents(
-
-                        new ButtonBuilder()
-                          .setLabel("Support Server")
-                          .setStyle(ButtonStyle.Link)
-                          .setURL(
-                            "https://discord.gg/YQCSFBhyyV"
-                          )
-                      );
+                  const row = new ActionRowBuilder().addComponents(menu);
 
                   return interaction.reply({
                     embeds: [embed],
@@ -3454,7 +3742,244 @@ const giveawayBlacklist = new Map();
                     ephemeral: true
                   });
                 }
-                
+                // 🎛️ GIVEAWAY EDIT DROPDOWN
+                if (
+                  interaction.isStringSelectMenu() &&
+                  interaction.customId.startsWith("gwy_edit_select_")
+                ) {
+                  const parts = interaction.customId.split("_");
+                  const messageId = parts[3];
+                  const expiresAt = Number(parts[4]);
+
+                  if (Date.now() > expiresAt) {
+                    return interaction.update({
+                      content: "⏰ This giveaway edit panel expired. Run `/giveaway edit` again.",
+                      embeds: [],
+                      components: []
+                    });
+                  }
+
+                  const field = interaction.values[0];
+                  const labels = {
+                    prize: "Prize",
+                    winners: "Winners",
+                    duration: "Duration",
+                    claimtime: "Claim Time",
+                    daily: "Daily Requirement",
+                    weekly: "Weekly Requirement",
+                    monthly: "Monthly Requirement",
+                    requiredrole: "Required Role",
+                    host: "Host"
+                  };
+
+                  const modal = new ModalBuilder()
+                    .setCustomId(`gwy_edit_modal_${messageId}_${field}_${expiresAt}`)
+                    .setTitle(`Edit ${labels[field]}`);
+
+                  const input = new TextInputBuilder()
+                    .setCustomId("value")
+                    .setLabel(`New ${labels[field]}`)
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                  if (field === "duration") {
+                    input.setPlaceholder("Example: 10m, 1h, 30s");
+                  } else if (field === "requiredrole") {
+                    input.setPlaceholder("Role ID or none");
+                  } else if (field === "host") {
+                    input.setPlaceholder("User ID");
+                  } else if (["winners", "claimtime", "daily", "weekly", "monthly"].includes(field)) {
+                    input.setPlaceholder("Number only");
+                  } else {
+                    input.setPlaceholder("Enter new value");
+                  }
+
+                  const row = new ActionRowBuilder().addComponents(input);
+
+                  modal.addComponents(row);
+
+                  return interaction.showModal(modal);
+                }
+                // 🎉 GIVEAWAY REMOVE USER
+                if (
+                  interaction.isChatInputCommand() &&
+                  interaction.commandName === "giveaway" &&
+                  interaction.options.getSubcommand() === "removeuser"
+                ) {
+                  const level = getUserLevel(interaction.member);
+
+                  if (level < 2) {
+                    return interaction.reply({
+                      content: "❌ Giveaway Managers only.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const messageId = interaction.options.getString("messageid");
+                  const user = interaction.options.getUser("user");
+                  const g = giveaways.get(messageId);
+
+                  if (!g) {
+                    return interaction.reply({
+                      content: "❌ Giveaway not found.",
+                      ephemeral: true
+                    });
+                  }
+
+                  if (!g.users || !g.users.includes(user.id)) {
+                    return interaction.reply({
+                      content: "❌ User is not in this giveaway.",
+                      ephemeral: true
+                    });
+                  }
+
+                  g.users = g.users.filter(id => id !== user.id);
+
+                  if (g.entryMap) {
+                    delete g.entryMap[user.id];
+                  }
+
+                  giveaways.set(messageId, g);
+                  saveData();
+
+                  return interaction.reply({
+                    content: `✅ Removed <@${user.id}> from giveaway \`${messageId}\`.`,
+                    ephemeral: true
+                  });
+                }
+
+                // 👤 STAFF PROFILE
+                if (
+                  interaction.isChatInputCommand() &&
+                  interaction.commandName === "staff" &&
+                  interaction.options.getSubcommand() === "profile"
+                ) {
+                  const user = interaction.options.getUser("user") || interaction.user;
+
+                  const data = staffPoints.get(user.id) || {
+                    total: 0,
+                    monthly: 0,
+                    modlogs: 0,
+                    tickets: 0,
+                    giveaways: 0,
+                    strikes: 0
+                  };
+
+                  const activeStrikes = strikes.get(user.id) || [];
+
+                  const embed = new EmbedBuilder()
+                    .setTitle("✨ Staff Profile")
+                    .setColor(0x5865f2)
+                    .setThumbnail(user.displayAvatarURL())
+                    .addFields(
+                      {
+                        name: "👤 Staff",
+                        value: `<@${user.id}>`,
+                        inline: true
+                      },
+                      {
+                        name: "🏆 Lifetime Points",
+                        value: `${data.total}`,
+                        inline: true
+                      },
+                      {
+                        name: "🌟 Monthly Points",
+                        value: `${data.monthly || 0}`,
+                        inline: true
+                      },
+                      {
+                        name: "✅ Modlogs",
+                        value: `${data.modlogs}`,
+                        inline: true
+                      },
+                      {
+                        name: "🎫 Tickets",
+                        value: `${data.tickets}`,
+                        inline: true
+                      },
+                      {
+                        name: "🎉 Giveaways",
+                        value: `${data.giveaways}`,
+                        inline: true
+                      },
+                      {
+                        name: "⚠️ Active Strikes",
+                        value: `${activeStrikes.length}`,
+                        inline: true
+                      }
+                    )
+                    .setFooter({
+                      text: "Lunar Staff System"
+                    })
+                    .setTimestamp();
+
+                  return interaction.reply({
+                    embeds: [embed]
+                  });
+                }
+
+                // 🔄 STAFF RESET MONTH
+                if (
+                  interaction.isChatInputCommand() &&
+                  interaction.commandName === "staff" &&
+                  interaction.options.getSubcommand() === "resetmonth"
+                ) {
+                  if (!isBypass(interaction.member)) {
+                    return interaction.reply({
+                      content: "❌ Level 4 only.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const confirm = interaction.options.getBoolean("confirm");
+
+                  if (!confirm) {
+                    return interaction.reply({
+                      content: "❌ Set confirm:true to reset monthly points.",
+                      ephemeral: true
+                    });
+                  }
+
+                  for (const [id, data] of staffPoints.entries()) {
+                    data.monthly = 0;
+                    staffPoints.set(id, data);
+                  }
+
+                  saveData();
+
+                  return interaction.reply({
+                    content: "✅ Monthly staff points reset.",
+                    ephemeral: true
+                  });
+                }
+
+                // 🩺 HEALTH CHECK
+                if (
+                  interaction.isChatInputCommand() &&
+                  interaction.commandName === "health"
+                ) {
+                  const me = interaction.guild.members.me;
+
+                  const checks = [
+                    `Guild Members Intent: ✅`,
+                    `Manage Roles: ${me.permissions.has(PermissionsBitField.Flags.ManageRoles) ? "✅" : "❌"}`,
+                    `View Audit Log: ${me.permissions.has(PermissionsBitField.Flags.ViewAuditLog) ? "✅" : "❌"}`,
+                    `Admin Logs Channel: ${interaction.guild.channels.cache.has(CHANNELS.adminLogs) ? "✅" : "❌"}`,
+                    `Bot Logs Channel: ${interaction.guild.channels.cache.has(CHANNELS.botLogs) ? "✅" : "❌"}`,
+                    `Ticket Category: ${interaction.guild.channels.cache.has(CHANNELS.ticketCategory) ? "✅" : "❌"}`
+                  ];
+
+                  const embed = new EmbedBuilder()
+                    .setTitle("🩺 Lunar Health Check")
+                    .setColor(0x57f287)
+                    .setDescription(checks.join("\n"))
+                    .setTimestamp();
+
+                  return interaction.reply({
+                    embeds: [embed],
+                    ephemeral: true
+                  });
+                }
                 // 🎉 PREMIUM GIVEAWAY CREATE
                   if (
                     interaction.isChatInputCommand() &&
@@ -3516,6 +4041,7 @@ const giveawayBlacklist = new Map();
 
                     const duration =
                       parseTime(durationInput);
+                    const endAt = Date.now() + duration;
 
                     let requirementText = "";
 
@@ -3559,9 +4085,10 @@ const giveawayBlacklist = new Map();
                         .addComponents(
 
                           new ButtonBuilder()
-                            .setCustomId("enter")
-                            .setLabel("🎉 0")
-                            .setStyle(ButtonStyle.Primary),
+                          .setCustomId("enter")
+                          .setEmoji("🎉")
+                          .setLabel("0")
+                          .setStyle(ButtonStyle.Primary),
 
                           new ButtonBuilder()
                             .setCustomId("participants")
@@ -3592,8 +4119,8 @@ const giveawayBlacklist = new Map();
                         },
 
                         {
-                          name: "⏰ Duration",
-                          value: durationInput,
+                          name: "⏰ Ends",
+                          value: formatGiveawayTime(endAt),
                           inline: true
                         },
 
@@ -3638,7 +4165,7 @@ const giveawayBlacklist = new Map();
                         components: [row]
                       });
 
-                    giveaways.set(msg.id, {
+                      giveaways.set(msg.id, {
 
                       users: [],
                       entryMap: {},
@@ -3649,6 +4176,9 @@ const giveawayBlacklist = new Map();
 
                       prize,
 
+                      endAt,
+                      durationInput,
+
                       requiredDaily,
                       requiredWeekly,
                       requiredMonthly,
@@ -3658,8 +4188,9 @@ const giveawayBlacklist = new Map();
                           ? requiredRole.id
                           : "none",
 
-                      channel,
-                      ended: false,
+                        channel,
+                        channelId: channel.id,
+                        ended: false,
                       lastWinner: null,
                       allWinners: [],
                       claimedUsers: [],
@@ -4572,12 +5103,23 @@ const giveawayBlacklist = new Map();
                   });
                 }
 
-                // 🎉 ENTER BUTTON
+                // ENTER BUTTON
                 if (
                   interaction.isButton() &&
                   interaction.customId === "enter"
                 ) {
                 const g = giveaways.get(interaction.message.id);
+
+                  if (!g) {
+                    return interaction.reply({
+                      content: "❌ Giveaway not found.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const isGiveawayBoss = isBypass(interaction.member);
+                  const hasBoosterBypass = interaction.member.roles.cache.has(ROLES.booster);
+                  const bypassRequirements = isGiveawayBoss || hasBoosterBypass;
                   // FIX OLD GIVEAWAYS
                   if (
                     typeof g.requiredDaily !== "number"
@@ -4607,20 +5149,41 @@ const giveawayBlacklist = new Map();
                       monthly: 0,
                       total: 0
                     };
+                  const denyRequirement = (periodText, current, required) => {
+                    const embed = new EmbedBuilder()
+                      .setColor(0xff4d4d)
+                      .setTitle("Entry Denied!")
+                      .setDescription(
+                        `Your entry for the giveaway of **${g.prize || "this prize"}** is denied as you've only sent **${Number(current).toLocaleString("en-US")} messages** ${periodText}\n` +
+                        `but you're required to send **${Number(required).toLocaleString("en-US")} messages**\n\n` +
+                        "**✦ Access Locked: Activity Required ✦**\n" +
+                        "Stay active, build your message count, and unlock your giveaway entry."
+                      )
+                      .setFooter({
+                        text: interaction.client.user.username
+                      })
+                      .setTimestamp();
+
+                    return interaction.reply({
+                      embeds: [embed],
+                      ephemeral: true
+                    });
+                  };
 
 
                   // 🌅 DAILY CHECK
+                  if (!bypassRequirements) {
                   if (
                     Number(g.requiredDaily) > 0 &&
                     stats.daily <
                       Number(g.requiredDaily)
                   ) {
 
-                    return interaction.reply({
-                      content:
-                        `❌ You need ${g.requiredDaily} daily messages to enter.`,
-                      ephemeral: true
-                    });
+                    return denyRequirement(
+                      "today",
+                      stats.daily,
+                      g.requiredDaily
+                    );
                   }
 
                   // 📅 WEEKLY CHECK
@@ -4630,11 +5193,11 @@ const giveawayBlacklist = new Map();
                       Number(g.requiredWeekly)
                   ) {
 
-                    return interaction.reply({
-                      content:
-                        `❌ You need ${g.requiredWeekly} weekly messages to enter.`,
-                      ephemeral: true
-                    });
+                    return denyRequirement(
+                      "this week",
+                      stats.weekly,
+                      g.requiredWeekly
+                    );
                   }
 
                   // 🗓️ MONTHLY CHECK
@@ -4644,13 +5207,13 @@ const giveawayBlacklist = new Map();
                       Number(g.requiredMonthly)
                   ) {
 
-                    return interaction.reply({
-                      content:
-                        `❌ You need ${g.requiredMonthly} monthly messages to enter.`,
-                      ephemeral: true
-                    });
+                    return denyRequirement(
+                      "this month",
+                      stats.monthly,
+                      g.requiredMonthly
+                    );
                   }
-
+                    }
                   if (g.paused) {
 
                     return interaction.reply({
@@ -4693,7 +5256,11 @@ const giveawayBlacklist = new Map();
                         ephemeral: true
                       });
                     }
-                  if (giveawayBlacklist.has(interaction.user.id)) {
+                  if (
+                    giveawayBlacklist.has(interaction.user.id) &&
+                    giveawayBlacklist.get(interaction.user.id) > Date.now()
+
+                  )
 
                     return interaction.reply({
                       embeds: [
@@ -4706,12 +5273,24 @@ const giveawayBlacklist = new Map();
                       ephemeral: true
                     });
                   }
-                if (!g) return;
-                  // 🎭 REQUIRED ROLE CHECK
-                  if (
-                    g.requiredRole &&
-                    g.requiredRole !== "none"
-                  ) {
+                
+                  if (!isGiveawayBoss) {
+                    if (
+                      interaction.member.roles.cache.has(ROLES.cooldown) ||
+                      interaction.member.roles.cache.has(ROLES.gwyBanned)
+                    ) {
+                      return interaction.reply({
+                        content: "❌ You are blocked from joining giveaways right now.",
+                        ephemeral: true
+                      });
+                    }
+                  }
+                    // 🎭 REQUIRED ROLE CHECK
+                    if (
+                      !bypassRequirements &&
+                      g.requiredRole &&
+                      g.requiredRole !== "none"
+                    ) {
 
                     if (
                       !interaction.member.roles.cache.has(
@@ -4770,20 +5349,46 @@ const giveawayBlacklist = new Map();
                   g.entryMap[interaction.user.id] =
                     totalEntries;
 
-                saveData();
+                  saveData();
 
-                const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+                  const entryCount = g.users.length;
 
-                  embed.data.fields[0] = {
-                    name: "🎟️ Entries",
-                    value: `${g.users.length}`,
-                    inline: true
-                  };
+                  const embed = EmbedBuilder.from(interaction.message.embeds[0]);
 
-                await interaction.update({
-                  embeds: [embed],
-                  components: interaction.message.components
-                });
+                  const fields = embed.data.fields || [];
+
+                  const entriesIndex = fields.findIndex(field =>
+                    field.name.includes("Entries") &&
+                    !field.name.includes("Extra")
+                  );
+
+                  if (entriesIndex !== -1) {
+                    fields[entriesIndex] = {
+                      ...fields[entriesIndex],
+                      value: `${entryCount}`
+                    };
+                  }
+
+                  embed.setFields(fields);
+
+                  const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                      .setCustomId("enter")
+                      .setEmoji("🎉")
+                      .setLabel(`${entryCount}`)
+                      .setStyle(ButtonStyle.Primary),
+
+                    new ButtonBuilder()
+                      .setCustomId("participants")
+                      .setEmoji("👥")
+                      .setLabel("Participants")
+                      .setStyle(ButtonStyle.Secondary)
+                  );
+
+                  await interaction.update({
+                    embeds: [embed],
+                    components: [row]
+                  });
               }
 
               // 🎟️ CLAIM BUTTON
@@ -4863,42 +5468,120 @@ const giveawayBlacklist = new Map();
                     });
 
 
-                // ✅ SEND MESSAGES
-                channel.send(
-                `👋 **Welcome <@${interaction.user.id}>**
+                  // ✅ SEND CLAIM PANEL
+                  const claimPanelEmbed = new EmbedBuilder()
+                    .setTitle("🎁 Prize Claim Ticket")
+                    .setColor(0x5865f2)
+                    .setDescription(
+                      `Welcome <@${interaction.user.id}>.\n\n` +
+                      `This ticket is for claiming your giveaway prize.`
+                    )
+                    .addFields(
+                      {
+                        name: "👤 Winner",
+                        value: `<@${interaction.user.id}>`,
+                        inline: true
+                      },
+                      {
+                        name: "🎉 Host",
+                        value: `<@${hostId}>`,
+                        inline: true
+                      },
+                      {
+                        name: "🎁 Prize",
+                        value: g.prize || "Prize",
+                        inline: true
+                      },
+                      {
+                        name: "💰 Host Instructions",
+                        value:
+                          "Send the payment, upload proof, then staff can mark the ticket status.",
+                        inline: false
+                      },
+                      {
+                        name: "🛡️ Staff Review",
+                        value:
+                          "Use the buttons below after checking proof and payment status.",
+                        inline: false
+                      }
+                    )
+                    .setFooter({
+                      text: "Lunar Claim Management"
+                    })
+                    .setTimestamp();
 
-                🎁 **Prize Claim Ticket**
+                  const claimStatusRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                      .setCustomId("claim_paid")
+                      .setLabel("Paid")
+                      .setEmoji("✅")
+                      .setStyle(ButtonStyle.Success),
 
-                👤 Host: <@${hostId}>
+                    new ButtonBuilder()
+                      .setCustomId("claim_rejected")
+                      .setLabel("Rejected")
+                      .setEmoji("❌")
+                      .setStyle(ButtonStyle.Danger),
 
-                ━━━━━━━━━━━━━━━
-
-                💰 **Payment Process**
-
-                **Host:**
-                • Send payment to winner  
-                • Upload screenshot  
-                • Type **paid**
-
-                **Staff:**
-                • Verify screenshot  
-                • React with:
-                ✅ = Paid  
-                ❌ = Not Paid
-
-                ━━━━━━━━━━━━━━━`
-                );
-
-                const logChannel = guild.channels.cache.get(CHANNELS.botLogs);
-                if (logChannel) {
-                  logChannel.send(
-                `📜 Claim Log
-
-                User: <@${interaction.user.id}>
-                Host: <@${hostId}>
-                Ticket: ${channel}`
+                    new ButtonBuilder()
+                      .setCustomId("claim_need_proof")
+                      .setLabel("Need Proof")
+                      .setEmoji("📸")
+                      .setStyle(ButtonStyle.Secondary)
                   );
-                }
+
+                  channel.send({
+                    embeds: [claimPanelEmbed],
+                    components: [claimStatusRow]
+                  });
+
+                  const logChannel = guild.channels.cache.get(CHANNELS.botLogs);
+
+                  if (logChannel) {
+                    const claimLogEmbed = new EmbedBuilder()
+                      .setTitle("📜 Giveaway Claim Log")
+                      .setColor(0x57f287)
+                      .addFields(
+                        {
+                          name: "👤 Winner",
+                          value: `<@${interaction.user.id}>`,
+                          inline: true
+                        },
+                        {
+                          name: "🎁 Prize",
+                          value: g.prize || "Prize",
+                          inline: true
+                        },
+                        {
+                          name: "🎉 Giveaway Host",
+                          value: `<@${hostId}>`,
+                          inline: true
+                        },
+                        {
+                          name: "🔗 Giveaway",
+                          value: g.messageUrl ? `[Jump to Giveaway](${g.messageUrl})` : "No link saved",
+                          inline: false
+                        },
+                        {
+                          name: "🎫 Claim Ticket",
+                          value: `${channel}`,
+                          inline: false
+                        },
+                        {
+                          name: "🕒 Claimed At",
+                          value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+                          inline: false
+                        }
+                      )
+                      .setFooter({
+                        text: "Lunar Giveaway Claim System"
+                      })
+                      .setTimestamp();
+
+                    logChannel.send({
+                      embeds: [claimLogEmbed]
+                    });
+                  }
 
                   g.claimedUsers.push(interaction.user.id);
 
@@ -4913,7 +5596,139 @@ const giveawayBlacklist = new Map();
                   saveData();
               }
 
-              // 🎫 CLOSE CONFIRM
+                // 🎫 CLAIM STATUS BUTTONS
+                if (
+                  interaction.isButton() &&
+                  [
+                    "claim_paid",
+                    "claim_rejected",
+                    "claim_need_proof"
+                  ].includes(interaction.customId)
+                ) {
+                  const member = interaction.member;
+
+                  const isStaff =
+                    member.roles.cache.has(ROLES.owner) ||
+                    member.roles.cache.has(ROLES.admin) ||
+                    member.roles.cache.has(ROLES.headmod) ||
+                    member.roles.cache.has(ROLES.mod) ||
+                    member.roles.cache.has(ROLES.trial) ||
+                    isBypass(member);
+
+                  if (!isStaff) {
+                    return interaction.reply({
+                      content: "❌ Staff only.",
+                      ephemeral: true
+                    });
+                  }
+
+                  if (interaction.customId === "claim_need_proof") {
+                    await interaction.reply({
+                      content:
+                        "📸 More proof is required. Please upload clearer payment proof or additional screenshots in this ticket."
+                    });
+
+                    return;
+                  }
+
+                  if (interaction.customId === "claim_rejected") {
+                    await interaction.reply({
+                      content:
+                        "❌ Claim rejected. Please recheck the payment details and provide valid proof."
+                    });
+
+                    return;
+                  }
+
+                  if (interaction.customId === "claim_paid") {
+                    await interaction.deferUpdate();
+
+                    const paidEmbed = new EmbedBuilder()
+                      .setTitle("✅ Claim Marked As Paid")
+                      .setColor(0x57f287)
+                      .addFields(
+                        {
+                          name: "🛡️ Verified By",
+                          value: `<@${interaction.user.id}>`,
+                          inline: true
+                        },
+                        {
+                          name: "🎫 Ticket",
+                          value: `${interaction.channel}`,
+                          inline: true
+                        }
+                      )
+                      .setFooter({
+                        text: "Ticket will close automatically"
+                      })
+                      .setTimestamp();
+
+                    await interaction.channel.send({
+                      embeds: [paidEmbed]
+                    });
+
+                    const disabledRow = new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId("claim_paid")
+                        .setLabel("Paid")
+                        .setEmoji("✅")
+                        .setStyle(ButtonStyle.Success)
+                        .setDisabled(true),
+
+                      new ButtonBuilder()
+                        .setCustomId("claim_rejected")
+                        .setLabel("Rejected")
+                        .setEmoji("❌")
+                        .setStyle(ButtonStyle.Danger)
+                        .setDisabled(true),
+
+                      new ButtonBuilder()
+                        .setCustomId("claim_need_proof")
+                        .setLabel("Need Proof")
+                        .setEmoji("📸")
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true)
+                    );
+
+                    await interaction.message.edit({
+                      components: [disabledRow]
+                    }).catch(() => {});
+
+                    setTimeout(async () => {
+                      const channel = interaction.channel;
+                      const attachment = await transcripts.createTranscript(channel).catch(() => null);
+
+                      const logChannel = interaction.guild.channels.cache.get(CHANNELS.botLogs);
+
+                      if (logChannel) {
+                        const closeEmbed = new EmbedBuilder()
+                          .setTitle("✅ Claim Ticket Paid & Closed")
+                          .setColor(0x57f287)
+                          .addFields(
+                            {
+                              name: "🎫 Ticket",
+                              value: channel.name,
+                              inline: true
+                            },
+                            {
+                              name: "🛡️ Closed By",
+                              value: `<@${interaction.user.id}>`,
+                              inline: true
+                            }
+                          )
+                          .setTimestamp();
+
+                        logChannel.send({
+                          embeds: [closeEmbed],
+                          files: attachment ? [attachment] : []
+                        });
+                      }
+
+                      await channel.delete().catch(() => {});
+                    }, 5000);
+                  }
+                }
+                // 🎫 CLOSE CONFIRM
                 if (
                   interaction.isButton() &&
                   interaction.customId === "close_confirm"
@@ -4976,6 +5791,204 @@ const giveawayBlacklist = new Map();
             }
 
 
+                // 🎛️ ONGOING GIVEAWAY EDIT MODAL
+                if (
+                  interaction.isModalSubmit() &&
+                  interaction.customId.startsWith("gwy_edit_modal_")
+                ) {
+                  const parts = interaction.customId.split("_");
+                  const messageId = parts[3];
+                  const field = parts[4];
+                  const expiresAt = Number(parts[5]);
+
+                  if (Date.now() > expiresAt) {
+                    return interaction.reply({
+                      content: "⏰ This giveaway edit panel expired. Run `/giveaway edit` again.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const g = giveaways.get(messageId);
+
+                  if (!g || g.ended) {
+                    return interaction.reply({
+                      content: "❌ Giveaway not found or already ended.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const value = interaction.fields.getTextInputValue("value").trim();
+
+                  if (field === "prize") {
+                    g.prize = value;
+                  }
+
+                  if (field === "winners") {
+                    const winners = parseInt(value);
+                    if (isNaN(winners) || winners < 1) {
+                      return interaction.reply({
+                        content: "❌ Winners must be a number above 0.",
+                        ephemeral: true
+                      });
+                    }
+
+                    g.winnerCount = winners;
+                  }
+
+                  if (field === "duration") {
+                    const duration = parseTime(value);
+                    if (!duration || duration < 1000) {
+                      return interaction.reply({
+                        content: "❌ Invalid duration. Use 30s, 10m, 1h.",
+                        ephemeral: true
+                      });
+                    }
+
+                    g.durationInput = value;
+                    g.endAt = Date.now() + duration;
+                    setTimeout(() => {
+                      const latest = giveaways.get(messageId);
+                      if (!latest || latest.ended) return;
+
+                      if (latest.endAt && Date.now() < latest.endAt) {
+                        return;
+                      }
+
+                      endGiveaway(messageId);
+                    }, duration);
+                  }
+
+                  if (field === "claimtime") {
+                    const claimSeconds = parseInt(value);
+                    if (isNaN(claimSeconds) || claimSeconds < 1) {
+                      return interaction.reply({
+                        content: "❌ Claim time must be a number above 0.",
+                        ephemeral: true
+                      });
+                    }
+
+                    g.claimTime = claimSeconds * 1000;
+                  }
+
+                  if (field === "daily") {
+                    const amount = parseInt(value);
+                    if (isNaN(amount) || amount < 0) {
+                      return interaction.reply({
+                        content: "❌ Daily requirement must be 0 or above.",
+                        ephemeral: true
+                      });
+                    }
+
+                    g.requiredDaily = amount;
+                  }
+
+                  if (field === "weekly") {
+                    const amount = parseInt(value);
+                    if (isNaN(amount) || amount < 0) {
+                      return interaction.reply({
+                        content: "❌ Weekly requirement must be 0 or above.",
+                        ephemeral: true
+                      });
+                    }
+
+                    g.requiredWeekly = amount;
+                  }
+
+                  if (field === "monthly") {
+                    const amount = parseInt(value);
+                    if (isNaN(amount) || amount < 0) {
+                      return interaction.reply({
+                        content: "❌ Monthly requirement must be 0 or above.",
+                        ephemeral: true
+                      });
+                    }
+
+                    g.requiredMonthly = amount;
+                  }
+
+                  if (field === "requiredrole") {
+                    if (value.toLowerCase() === "none") {
+                      g.requiredRole = "none";
+                    } else {
+                      const role = interaction.guild.roles.cache.get(value);
+                      if (!role) {
+                        return interaction.reply({
+                          content: "❌ Role not found. Enter a valid role ID or `none`.",
+                          ephemeral: true
+                        });
+                      }
+
+                      g.requiredRole = role.id;
+                    }
+                  }
+
+                  if (field === "host") {
+                    const member = await interaction.guild.members.fetch(value).catch(() => null);
+                    if (!member) {
+                      return interaction.reply({
+                        content: "❌ User not found. Enter a valid user ID.",
+                        ephemeral: true
+                      });
+                    }
+
+                    g.host = member.id;
+                  }
+
+                  giveaways.set(messageId, g);
+                  saveData();
+
+                  const channelId =
+                    g.channelId ||
+                    g.channel?.id;
+
+                  const channel =
+                    client.channels.cache.get(channelId) ||
+                    await client.channels.fetch(channelId).catch(() => null);
+
+                  if (!channel || !channel.messages) {
+                    return interaction.reply({
+                      content: "⚠️ Giveaway data updated, but I could not edit the giveaway message.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const msg = await channel.messages.fetch(messageId).catch(() => null);
+
+                  if (!msg) {
+                    return interaction.reply({
+                      content: "⚠️ Giveaway data updated, but giveaway message was not found.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const embed = buildGiveawayEmbed(g);
+
+                  const entryCount = g.users?.length || 0;
+
+                  const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                      .setCustomId("enter")
+                      .setEmoji("🎉")
+                      .setLabel(`${entryCount}`)
+                      .setStyle(ButtonStyle.Primary),
+
+                    new ButtonBuilder()
+                      .setCustomId("participants")
+                      .setEmoji("👥")
+                      .setLabel("Participants")
+                      .setStyle(ButtonStyle.Secondary)
+                  );
+
+                  await msg.edit({
+                    embeds: [embed],
+                    components: [row]
+                  });
+
+                  return interaction.reply({
+                    content: `✅ Giveaway **${field}** updated successfully.`,
+                    ephemeral: true
+                  });
+                }
                 // 🎛️ GIVEAWAY EDIT MODAL
                 if (
                   interaction.isModalSubmit() &&
@@ -5200,9 +6213,15 @@ const giveawayBlacklist = new Map();
                 }
               }
 
+              const fixedWinner = fixedWinners.get(id);
+
               const availableUsers = [...weightedUsers];
 
               const winners = [];
+
+              if (fixedWinner) {
+                winners.push(fixedWinner);
+              }
 
               while (
                 winners.length < (g.winnerCount || 1) &&
@@ -5215,13 +6234,23 @@ const giveawayBlacklist = new Map();
                 const picked =
                   availableUsers[randomIndex];
 
-                winners.push(picked);
+                if (!winners.includes(picked)) {
+                  winners.push(picked);
+                }
 
-                availableUsers.splice(randomIndex, 1);
+                for (let i = availableUsers.length - 1; i >= 0; i--) {
+                  if (availableUsers[i] === picked) {
+                    availableUsers.splice(i, 1);
+                  }
+                }
               }
+
               if (winners.length === 0) {
                 return g.channel.send("❌ No participants.");
               }
+
+              fixedWinners.delete(id);
+              saveData();
 
               g.lastWinner = winners[0];
               g.allWinners = winners;
@@ -5313,12 +6342,12 @@ const giveawayBlacklist = new Map();
               });
 
               for (const winner of winners) {
-                startClaim(g, winner);
+                startClaim(g, winner, id);
               }
             }
 
             // CLAIM SYSTEM
-            async function startClaim(g, userId) {
+async function startClaim(g, userId, giveawayId) {
               setTimeout(async () => {
                 if (
                   !g.claimedUsers.includes(userId)
@@ -5364,13 +6393,13 @@ const giveawayBlacklist = new Map();
 
                   g.channel.send("❌ Not claimed → Rerolling...");
 
-                  reroll(g);
+                  reroll(g, giveawayId);
                 }
               }, g.claimTime);
             }
 
             // REROLL
-            function reroll(g) {
+function reroll(g, giveawayId) {
 
               const available = g.users.filter(u =>
                 !g.failed.includes(u) &&
@@ -5450,10 +6479,19 @@ const giveawayBlacklist = new Map();
                 })
                 .setTimestamp();
 
-              g.channel.send({
-                embeds: [embed]
-              });
-              startClaim(g, winner);
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`claim_${giveawayId}`)
+      .setLabel("🎟️ Claim Prize")
+      .setStyle(ButtonStyle.Success)
+  );
+
+  g.channel.send({
+    embeds: [embed],
+    components: [row]
+  });
+
+  startClaim(g, winner, giveawayId);
             }
 
             client.on("messageReactionAdd", async (reaction, user) => {
@@ -5521,6 +6559,20 @@ const giveawayBlacklist = new Map();
               }
             });
 
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+  const hadMotm = oldMember.roles.cache.has(ROLES.motm);
+  const hasMotm = newMember.roles.cache.has(ROLES.motm);
+
+  if (!hadMotm && !hasMotm) return;
+
+  const isEligibleForMotm =
+    newMember.roles.cache.has(ROLES.mod) ||
+    newMember.roles.cache.has(ROLES.headmod);
+
+  if (hasMotm && !isEligibleForMotm) {
+    await newMember.roles.remove(ROLES.motm).catch(() => {});
+  }
+});
             async function assignMOTM(guild) {
 
               const sorted = [...staffPoints.entries()]
@@ -5604,4 +6656,7 @@ const giveawayBlacklist = new Map();
               saveData();
             }
 
-                    client.login(process.env.TOKEN);
+              client.login(process.env.TOKEN);
+
+
+
