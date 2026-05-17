@@ -5512,7 +5512,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
                   const claimStatusRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
-                      .setCustomId("claim_paid")
+                    .setCustomId("claimstatus_paid")
                       .setLabel("Paid")
                       .setEmoji("✅")
                       .setStyle(ButtonStyle.Success),
@@ -5669,14 +5669,14 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
                     const disabledRow = new ActionRowBuilder().addComponents(
                       new ButtonBuilder()
-                        .setCustomId("claim_paid")
+                      .setCustomId("claimstatus_paid")
                         .setLabel("Paid")
                         .setEmoji("✅")
                         .setStyle(ButtonStyle.Success)
                         .setDisabled(true),
 
                       new ButtonBuilder()
-                        .setCustomId("claim_rejected")
+                      .setCustomId("claimstatus_rejected")
                         .setLabel("Rejected")
                         .setEmoji("❌")
                         .setStyle(ButtonStyle.Danger)
