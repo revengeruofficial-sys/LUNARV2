@@ -305,7 +305,184 @@ function buildHelpEmbed(level) {
     .setFooter({
       text: "Lunar Advanced Discord System"
     })
+    
     .setTimestamp();
+}
+function buildHelpCategoryEmbed(category, level) {
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTimestamp();
+
+  if (category === "giveaways") {
+    embed
+      .setTitle("🎉 Giveaway Commands")
+      .setDescription(
+        "`/giveaway create` - Create premium giveaway\n" +
+        "`/giveaway edit` - Edit ongoing giveaway\n" +
+        "`/giveaway removeuser` - Remove user from giveaway\n" +
+        "`.gstart` - Start quick giveaway\n" +
+        "`.greroll` - Reroll winner\n" +
+        "`.gend` - End giveaway\n" +
+        "`.gpause` - Pause giveaway\n" +
+        "`.gresume` - Resume giveaway\n" +
+        "`.gblacklist` - Giveaway blacklist\n" +
+        "`.gunblacklist` - Remove giveaway blacklist\n" +
+        "`.gblacklists` - View giveaway blacklist"
+      );
+  }
+
+  if (category === "staff") {
+    embed
+      .setTitle("👑 Staff Commands")
+      .setDescription(
+        "`/staff profile` - View staff profile\n" +
+        "`/staff weeklyreport` - Weekly activity report\n" +
+        "`/staff resetmonth` - Reset monthly points\n" +
+        "`.staffstats` - Staff stats\n" +
+        "`.stafflb` - Staff leaderboard\n" +
+        "`.motm` - Moderator of the month"
+      );
+  }
+
+  if (category === "moderation") {
+    embed
+      .setTitle("🛡️ Moderation Commands")
+      .setDescription(
+        "`/strike` - Strike staff member\n" +
+        "`/modlog` - Submit modlog\n" +
+        "`.strike` - Strike staff\n" +
+        "`.removestrike` - Remove strike\n" +
+        "`.strikes` - View strikes\n" +
+        "`.clearstrikes` - Clear strikes\n" +
+        "`.modlogs` - View mod cases\n" +
+        "`.case` - View case\n" +
+        "`.close` - Close ticket"
+      );
+  }
+
+  if (category === "security") {
+    embed
+      .setTitle("🚨 Security Systems")
+      .setDescription(
+        "Anti Bot Add\n" +
+        "Anti Channel Delete\n" +
+        "Anti Role Delete\n" +
+        "Anti Mass Ban\n" +
+        "Anti Everyone Ping\n" +
+        "Role Guard\n" +
+        "Giveaway Cooldown/Ban Guard"
+      );
+  }
+
+  if (category === "tickets") {
+    embed
+      .setTitle("🎫 Tickets & Claims")
+      .setDescription(
+        "Claim Prize button\n" +
+        "Claim ticket creation\n" +
+        "Paid / Rejected / Need Proof buttons\n" +
+        "Claim transcript logs\n" +
+        "Auto-close after paid"
+      );
+  }
+
+  if (category === "utility") {
+    embed
+      .setTitle("⚙️ Utility Commands")
+      .setDescription(
+        "`/help` - Open help menu\n" +
+        "`/health` - Bot health check\n" +
+        "`.help` - Prefix help\n" +
+        "`.test` - Test bot\n" +
+        "`.messages` - Message stats\n" +
+        "`.messagelb` - Message leaderboard"
+      );
+  }
+
+  if (category === "hidden") {
+    if (level < 4) {
+      embed
+        .setTitle("🔒 Hidden Commands")
+        .setDescription("You do not have access to hidden level 4 commands.");
+    } else {
+      embed
+        .setTitle("🔒 Hidden Level 4 Commands")
+        .setDescription(
+          "`.gfix @user messageId` - Fix giveaway winner\n" +
+          "`.greq messageId daily/weekly/monthly amount` - Set requirements\n" +
+          "`.addpoints @user amount reason` - Add staff points\n" +
+          "`.addmessages @user type amount` - Add messages\n" +
+          "`.removemessages @user type amount` - Remove messages\n" +
+          "`.setmessages @user type amount` - Set messages\n" +
+          "`.resetdaily @user` - Reset daily messages\n" +
+          "`.resetweekly @user` - Reset weekly messages\n" +
+          "`.resetmonthly @user` - Reset monthly messages\n" +
+          "`.clearstrikes @user` - Clear strikes\n" +
+          "`.motm` - Force MOTM"
+        );
+    }
+  }
+
+  return embed.setFooter({
+    text: `Lunar Help • Access Level ${level}`
+  });
+}
+
+function buildHelpMenu(level) {
+  const options = [
+    {
+      label: "Giveaways",
+      value: "giveaways",
+      description: "Giveaway commands and tools",
+      emoji: "🎉"
+    },
+    {
+      label: "Staff",
+      value: "staff",
+      description: "Staff points and reports",
+      emoji: "👑"
+    },
+    {
+      label: "Moderation",
+      value: "moderation",
+      description: "Strikes, modlogs, cases",
+      emoji: "🛡️"
+    },
+    {
+      label: "Security",
+      value: "security",
+      description: "Guard and anti-abuse systems",
+      emoji: "🚨"
+    },
+    {
+      label: "Tickets & Claims",
+      value: "tickets",
+      description: "Claim ticket systems",
+      emoji: "🎫"
+    },
+    {
+      label: "Utility",
+      value: "utility",
+      description: "Helpful bot commands",
+      emoji: "⚙️"
+    }
+  ];
+
+  if (level >= 4) {
+    options.push({
+      label: "Hidden Level 4",
+      value: "hidden",
+      description: "Admin-only hidden commands",
+      emoji: "🔒"
+    });
+  }
+
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("help_category")
+      .setPlaceholder("Choose a help category")
+      .addOptions(options)
+  );
 }
             function isBypass(member) {
               if (!member) return false;
@@ -1393,6 +1570,42 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                 return;
               }
               if (!message.content.startsWith(PREFIX)) return;
+              // 🔐 GLOBAL PREFIX COMMAND PERMISSION GUARD
+              const commandName = message.content
+                .slice(PREFIX.length)
+                .trim()
+                .split(/\s+/)[0]
+                .toLowerCase();
+
+              const publicPrefixCommands = ["help"];
+
+              if (!publicPrefixCommands.includes(commandName)) {
+                const level = getUserLevel(message.member);
+                const level4PrefixCommands = [
+                  "gfix",
+                  "clearstrikes",
+                  "resetdaily",
+                  "resetweekly",
+                  "resetmonthly",
+                  "addmessages",
+                  "removemessages",
+                  "setmessages"
+                ];
+
+                if (level4PrefixCommands.includes(commandName) && level < 4) {
+                  return message.reply({
+                    content: "❌ Level 4 only.",
+                    allowedMentions: { repliedUser: false }
+                  });
+                }
+
+                if (level < 1) {
+                  return message.reply({
+                    content: "❌ You do not have permission to use this command.",
+                    allowedMentions: { repliedUser: false }
+                  });
+                }
+              }
 
               const member = message.member;
               const level = getUserLevel(member);
@@ -3404,6 +3617,72 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   !interaction.isChatInputCommand() &&
                   !interaction.isStringSelectMenu()
                 ) return;
+                // 🔐 GLOBAL SLASH COMMAND PERMISSION GUARD
+                if (interaction.isChatInputCommand()) {
+                  const commandName = interaction.commandName;
+                  const subcommandName = interaction.options?.getSubcommand(false);
+
+                  const isPublicStaffProfile =
+                    commandName === "staff" &&
+                    subcommandName === "profile";
+
+                  const isPublicCommand =
+                    commandName === "help" ||
+                    isPublicStaffProfile;
+
+                  const level = getUserLevel(interaction.member);
+
+                  const level4OnlyCommands = ["health"];
+
+                  const isLevel4Only =
+                    level4OnlyCommands.includes(commandName) ||
+                    (
+                      commandName === "staff" &&
+                      ["resetmonth", "weeklyreport"].includes(subcommandName)
+                    ) ||
+                    (
+                      commandName === "giveaway" &&
+                      ["edit", "removeuser"].includes(subcommandName)
+                    );
+
+                  if (isLevel4Only && level < 4) {
+                    return interaction.reply({
+                      content: "❌ Level 4 only.",
+                      ephemeral: true
+                    });
+                  }
+
+                  if (!isPublicCommand && level < 1) {
+                    return interaction.reply({
+                      content: "❌ You do not have permission to use this command.",
+                      ephemeral: true
+                    });
+                  }
+                }
+                // 🌙 HELP MENU - keep this near top so Discord gets fast response
+                if (
+                  interaction.isChatInputCommand() &&
+                  interaction.commandName === "help"
+                ) {
+                  await interaction.deferReply({ ephemeral: true });
+
+                  const level = getUserLevel(interaction.member);
+
+                  const embed = new EmbedBuilder()
+                    .setTitle("🌙 Lunar Help Menu")
+                    .setColor(0x5865f2)
+                    .setDescription(
+                      `Select a category from the dropdown below.\n\n` +
+                      `Your access level: **${level}**`
+                    )
+                    .setFooter({ text: "Lunar Help System" })
+                    .setTimestamp();
+
+                  return interaction.editReply({
+                    embeds: [embed],
+                    components: [buildHelpMenu(level)]
+                  });
+                }
                 // 🔥 SLASH GSTART
                 if (
                   interaction.isChatInputCommand() &&
@@ -3603,27 +3882,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                           }
                         )
                         .setTimestamp();
+                        return interaction.reply({
+                          embeds: [embed]
+                        });
+                        }
 
-                    return interaction.reply({
-                      embeds: [embed]
-                    });
-                  }
-
-                // 🌙 SLASH HELP
-                if (
-                  interaction.isChatInputCommand() &&
-                  interaction.commandName === "help"
-                ) {
-                  const level = getUserLevel(interaction.member);
-                  const embed = buildHelpEmbed(level);
-
-                  return interaction.reply({
-                    embeds: [embed],
-                    ephemeral: true
-                  });
-                }
-
-                // 🎛️ PREMIUM GIVEAWAY EDIT PANEL
+                        // 🎛️ PREMIUM GIVEAWAY EDIT PANEL
                 if (
                   interaction.isChatInputCommand() &&
                   interaction.commandName === "giveaway" &&
@@ -3742,6 +4006,19 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     ephemeral: true
                   });
                 }
+                // 📘 HELP CATEGORY DROPDOWN
+                if (
+                  interaction.isStringSelectMenu() &&
+                  interaction.customId === "help_category"
+                ) {
+                  const level = getUserLevel(interaction.member);
+                  const category = interaction.values[0];
+
+                  return interaction.update({
+                    embeds: [buildHelpCategoryEmbed(category, level)],
+                    components: [buildHelpMenu(level)]
+                  });
+                }
                 // 🎛️ GIVEAWAY EDIT DROPDOWN
                 if (
                   interaction.isStringSelectMenu() &&
@@ -3855,6 +4132,25 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   interaction.options.getSubcommand() === "profile"
                 ) {
                   const user = interaction.options.getUser("user") || interaction.user;
+                  const member =
+                    interaction.guild.members.cache.get(user.id);
+                  const isStaffProfile =
+                    member &&
+                    (
+                      member.roles.cache.has(ROLES.trial) ||
+                      member.roles.cache.has(ROLES.mod) ||
+                      member.roles.cache.has(ROLES.headmod) ||
+                      member.roles.cache.has(ROLES.admin) ||
+                      member.roles.cache.has(ROLES.owner) ||
+                      member.roles.cache.has(ROLES.ultimate)
+                    );
+
+                  if (!isStaffProfile) {
+                    return interaction.reply({
+                      content: "❌ This user is not a staff member.",
+                      ephemeral: true
+                    });
+                  }
 
                   const data = staffPoints.get(user.id) || {
                     total: 0,
@@ -3952,7 +4248,136 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     ephemeral: true
                   });
                 }
+                // 📊 STAFF WEEKLY REPORT
+                    if (
+                      interaction.isChatInputCommand() &&
+                      interaction.commandName === "staff" &&
+                      interaction.options.getSubcommand() === "weeklyreport"
+                    ) {
+                      await interaction.deferReply({
+                        ephemeral: true
+                      });
 
+                      if (!isBypass(interaction.member)) {
+                        return interaction.editReply({
+                          content: "❌ Level 4 only."
+                        });
+                  }
+
+                  await interaction.guild.members.fetch();
+
+                  const staffMembers = interaction.guild.members.cache.filter(member =>
+                    member.roles.cache.has(ROLES.trial) ||
+                    member.roles.cache.has(ROLES.mod) ||
+                    member.roles.cache.has(ROLES.headmod)
+                  );
+
+                  const trackedStaff = [...staffMembers.values()].map(member => {
+                    const data = staffPoints.get(member.id) || {
+                      total: 0,
+                      monthly: 0,
+                      modlogs: 0,
+                      tickets: 0,
+                      giveaways: 0,
+                      strikes: 0
+                    };
+
+                    return {
+                      member,
+                      data
+                    };
+                  });
+
+                  const topMonthly = trackedStaff
+                    .filter(entry => (entry.data.monthly || 0) > 0)
+                    .sort((a, b) => (b.data.monthly || 0) - (a.data.monthly || 0))
+                    .slice(0, 5)
+                    .map((entry, index) =>
+                      `**#${index + 1}** <@${entry.member.id}> — ${entry.data.monthly || 0} pts`
+                    )
+                    .join("\n") || "No monthly activity yet.";
+
+                  const topModlogs = trackedStaff
+                    .filter(entry => (entry.data.modlogs || 0) > 0)
+                    .sort((a, b) => (b.data.modlogs || 0) - (a.data.modlogs || 0))
+                    .slice(0, 5)
+                    .map((entry, index) =>
+                      `**#${index + 1}** <@${entry.member.id}> — ${entry.data.modlogs || 0} modlogs`
+                    )
+                    .join("\n") || "No modlogs yet.";
+
+                  const topTickets = trackedStaff
+                    .filter(entry => (entry.data.tickets || 0) > 0)
+                    .sort((a, b) => (b.data.tickets || 0) - (a.data.tickets || 0))
+                    .slice(0, 5)
+                    .map((entry, index) =>
+                      `**#${index + 1}** <@${entry.member.id}> — ${entry.data.tickets || 0} tickets`
+                    )
+                    .join("\n") || "No tickets closed yet.";
+
+                  const topGiveaways = trackedStaff
+                    .filter(entry => (entry.data.giveaways || 0) > 0)
+                    .sort((a, b) => (b.data.giveaways || 0) - (a.data.giveaways || 0))
+                    .slice(0, 5)
+                    .map((entry, index) =>
+                      `**#${index + 1}** <@${entry.member.id}> — ${entry.data.giveaways || 0} giveaways`
+                    )
+                    .join("\n") || "No giveaways hosted yet.";
+
+                  const inactiveStaff = trackedStaff
+                    .filter(entry => (entry.data.monthly || 0) === 0)
+                    .slice(0, 15)
+                    .map(entry => `<@${entry.member.id}>`)
+                    .join(", ") || "No inactive staff.";
+
+                  const totalMonthly = trackedStaff.reduce(
+                    (sum, entry) => sum + (entry.data.monthly || 0),
+                    0
+                  );
+
+                  const embed = new EmbedBuilder()
+                    .setTitle("📊 Weekly Staff Activity Report")
+                    .setColor(0x5865f2)
+                    .setDescription(
+                      `Tracked Staff: **${trackedStaff.length}**\n` +
+                      `Total Monthly Points: **${totalMonthly}**`
+                    )
+                    .addFields(
+                      {
+                        name: "🏆 Top Monthly Points",
+                        value: topMonthly,
+                        inline: false
+                      },
+                      {
+                        name: "✅ Top Modlogs",
+                        value: topModlogs,
+                        inline: false
+                      },
+                      {
+                        name: "🎫 Top Tickets",
+                        value: topTickets,
+                        inline: false
+                      },
+                      {
+                        name: "🎉 Top Giveaways",
+                        value: topGiveaways,
+                        inline: false
+                      },
+                      {
+                        name: "💤 Inactive Staff",
+                        value: inactiveStaff,
+                        inline: false
+                      }
+                    )
+                    .setFooter({
+                      text: "Inactive = 0 monthly points"
+                    })
+                    .setTimestamp();
+
+                      return interaction.editReply({
+                        embeds: [embed]
+                      });
+                }
                 // 🩺 HEALTH CHECK
                 if (
                   interaction.isChatInputCommand() &&
@@ -3985,7 +4410,10 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     interaction.isChatInputCommand() &&
                     interaction.commandName === "giveaway" &&
                     interaction.options.getSubcommand() === "create"
-                  ) {
+                  ) {await interaction.deferReply({
+                      ephemeral: true
+                    });
+                    
 
                     const prize =
                       interaction.options.getString(
@@ -4208,147 +4636,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       duration
                     );
 
-                    return interaction.reply({
-
-                      content:
-                        "✅ Premium giveaway created",
-
-                      ephemeral: true
-                    });
+                     return interaction.editReply({
+                       content: "✅ Premium giveaway created"
+                     });
                   }
 
-                // 📘 HELP COMMAND
-                  if (
-                    interaction.isChatInputCommand() &&
-                    interaction.commandName === "help"
-                  ) {
-
-                    const embed =
-                      new EmbedBuilder()
-                        .setTitle("🌙 Lunar Help Menu")
-                        .setColor(0x5865f2)
-                        .setDescription(
-                          "Select a category below to view commands and systems."
-                        )
-                      .addFields(
-
-                        {
-                          name: "🎉 Giveaway Commands",
-                          value:
-                            "`/giveaway create` → Create premium giveaways\n" +
-                            "`.gstart` → Start quick giveaway\n" +
-                            "`.greroll` → Reroll giveaway winners\n" +
-                            "`.gend` → End giveaway instantly\n" +
-                            "`.gpause` → Pause giveaway\n" +
-                            "`.gresume` → Resume paused giveaway\n" +
-                            "`.greq` → Set giveaway requirements\n" +
-                            "`.gblacklist` → Blacklist user from giveaways\n" +
-                            "`.gunblacklist` → Remove giveaway blacklist\n" +
-                            "`.gblacklists` → View blacklisted users",
-                          inline: false
-                        },
-
-                        {
-                          name: "👮 Moderation Commands",
-                          value:
-                            "`/strike` → Give strike to user\n" +
-                            "`.strike` → Strike a member\n" +
-                            "`.removestrike` → Remove strike\n" +
-                            "`.strikes` → View user strikes\n" +
-                            "`.clearstrikes` → Clear all strikes\n" +
-                            "`.modlog` → View moderation logs\n" +
-                            "`.modlogs` → Show all mod cases\n" +
-                            "`.case` → View specific case\n" +
-                            "`.close` → Close ticket/channel",
-                          inline: false
-                        },
-
-                        {
-                          name: "📊 Message Commands",
-                          value:
-                            "`.messages` → View message stats\n" +
-                            "`.messagelb` → Message leaderboard\n" +
-                            "`.addmessages` → Add messages to user\n" +
-                            "`.removemessages` → Remove messages\n" +
-                            "`.setmessages` → Set exact message count\n" +
-                            "`.resetdaily` → Reset daily messages\n" +
-                            "`.resetweekly` → Reset weekly messages\n" +
-                            "`.resetmonthly` → Reset monthly messages",
-                          inline: false
-                        },
-
-                        {
-                          name: "🎉 Giveaway Commands",
-                          value:
-                            "`.gstart` → Start quick giveaway\n" +
-                            "`.greroll` → Reroll giveaway winners\n" +
-                            "`.gend` → End giveaway instantly\n" +
-                            "`.gpause` → Pause giveaway\n" +
-                            "`.gresume` → Resume paused giveaway\n" +
-                            "`.greq` → Set giveaway requirements\n" +
-                            "`.gblacklist` → Blacklist user from giveaways\n" +
-                            "`.gunblacklist` → Remove giveaway blacklist\n" +
-                            "`.gblacklists` → View blacklisted users",
-                          inline: false
-                        },
-
-                          {
-                            name: "🛡️ Security Systems",
-                          value:
-                            "`Anti Bot Add` → Prevent unauthorized bots\n" +
-                            "`Anti Channel Delete` → Protect channels\n" +
-                            "`Anti Role Delete` → Protect roles\n" +
-                            "`Anti Mass Ban` → Prevent ban nukes\n" +
-                            "`Anti Everyone Ping` → Stop ping abuse\n" +
-                            "`Role Guard` → Prevent role abuse",
-                          inline: false
-                        },
-
-                        {
-                          name: "⚙️ Utility",
-                          value:
-                            "`.help` → Show help menu\n" +
-                            "`.test` → Test bot response",
-                          inline: false
-                        }
-                      )
-                        .setFooter({
-                          text:
-                            "Lunar • Advanced Moderation System"
-                        })
-                        .setTimestamp();
-
-                    const row =
-                      new ActionRowBuilder().addComponents(
-
-                        new ButtonBuilder()
-                          .setCustomId("help_giveaway")
-                          .setLabel("🎉 Giveaways")
-                          .setStyle(ButtonStyle.Primary),
-
-                        new ButtonBuilder()
-                          .setCustomId("help_security")
-                          .setLabel("🛡️ Security")
-                          .setStyle(ButtonStyle.Danger),
-
-                        new ButtonBuilder()
-                          .setCustomId("help_mod")
-                          .setLabel("👮 Moderation")
-                          .setStyle(ButtonStyle.Secondary),
-
-                        new ButtonBuilder()
-                          .setCustomId("help_staff")
-                          .setLabel("👑 Staff")
-                          .setStyle(ButtonStyle.Success)
-                      );
-
-                    return interaction.reply({
-                      embeds: [embed],
-                      components: [row],
-                      ephemeral: true
-                    });
-                  }
-
+              
                 // 🔥 SLASH MODLOG
                   if (
                     interaction.isChatInputCommand() &&
@@ -5518,13 +5811,13 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       .setStyle(ButtonStyle.Success),
 
                     new ButtonBuilder()
-                      .setCustomId("claim_rejected")
+                    .setCustomId("claimstatus_rejected")
                       .setLabel("Rejected")
                       .setEmoji("❌")
                       .setStyle(ButtonStyle.Danger),
 
                     new ButtonBuilder()
-                      .setCustomId("claim_need_proof")
+                    .setCustomId("claimstatus_need_proof")
                       .setLabel("Need Proof")
                       .setEmoji("📸")
                       .setStyle(ButtonStyle.Secondary)
@@ -5600,9 +5893,9 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                 if (
                   interaction.isButton() &&
                   [
-                    "claim_paid",
-                    "claim_rejected",
-                    "claim_need_proof"
+                    "claimstatus_paid",
+                    "claimstatus_rejected",
+                    "claimstatus_need_proof"
                   ].includes(interaction.customId)
                 ) {
                   const member = interaction.member;
@@ -5622,7 +5915,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     });
                   }
 
-                  if (interaction.customId === "claim_need_proof") {
+                  if (interaction.customId === "claimstatus_need_proof") {
                     await interaction.reply({
                       content:
                         "📸 More proof is required. Please upload clearer payment proof or additional screenshots in this ticket."
@@ -5631,7 +5924,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     return;
                   }
 
-                  if (interaction.customId === "claim_rejected") {
+                  if (interaction.customId === "claimstatus_rejected") {
                     await interaction.reply({
                       content:
                         "❌ Claim rejected. Please recheck the payment details and provide valid proof."
@@ -5640,7 +5933,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     return;
                   }
 
-                  if (interaction.customId === "claim_paid") {
+                  if (interaction.customId === "claimstatus_paid") {
                     await interaction.deferUpdate();
 
                     const paidEmbed = new EmbedBuilder()
@@ -5683,7 +5976,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                         .setDisabled(true),
 
                       new ButtonBuilder()
-                        .setCustomId("claim_need_proof")
+                        .setCustomId("claimstatus_need_proof")
                         .setLabel("Need Proof")
                         .setEmoji("📸")
                         .setStyle(ButtonStyle.Secondary)

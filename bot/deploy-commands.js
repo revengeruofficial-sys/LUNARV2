@@ -254,14 +254,19 @@ const commands = [
           option.setName("user").setDescription("Staff user").setRequired(false)
         )
     )
-    .addSubcommand(sub =>
-      sub
-        .setName("resetmonth")
-        .setDescription("Reset monthly staff points")
-        .addBooleanOption(option =>
-          option.setName("confirm").setDescription("Confirm monthly reset").setRequired(true)
-        )
-    ),
+        .addSubcommand(sub =>
+    sub
+      .setName("resetmonth")
+      .setDescription("Reset monthly staff points")
+      .addBooleanOption(option =>
+        option.setName("confirm").setDescription("Confirm monthly reset").setRequired(true)
+      )
+  )
+  .addSubcommand(sub =>
+    sub
+      .setName("weeklyreport")
+      .setDescription("View weekly staff activity report")
+  ),
 
   new SlashCommandBuilder()
     .setName("health")
