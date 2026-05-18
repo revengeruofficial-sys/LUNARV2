@@ -8,6 +8,7 @@
             const fs = require("fs");
             const strikes = new Map();
             const staffPoints = new Map();
+const staffRatings = new Map();
 const giveawayBlacklist = new Map();
 
             // Prevent duplicate instance
@@ -82,6 +83,7 @@ const giveawayBlacklist = new Map();
                 strikes: Object.fromEntries(strikes),
                 punishmentLogs: Object.fromEntries(punishmentLogs),
                 staffPoints: Object.fromEntries(staffPoints),
+                staffRatings: Object.fromEntries(staffRatings),
                 giveawayBlacklist:
                 Object.fromEntries(giveawayBlacklist),
                 giveaways: Object.fromEntries(giveaways),
@@ -136,6 +138,14 @@ const giveawayBlacklist = new Map();
                 }
               }
 
+              if (data.staffRatings) {
+                staffRatings.clear();
+
+                for (const key in data.staffRatings) {
+                  staffRatings.set(key, data.staffRatings[key]);
+                }
+              }
+              
               // giveaway blacklist
               if (data.giveawayBlacklist) {
 
@@ -186,23 +196,98 @@ const giveawayBlacklist = new Map();
               }
 
               loadData();
-function expireOldStrikes() {
-  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-  let changed = false;
+  function expireOldStrikes() {
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    let changed = false;
 
-  for (const [userId, userStrikes] of strikes.entries()) {
-    const active = userStrikes.filter(s => Date.now() - s.time < thirtyDays);
+    for (const [userId, userStrikes] of strikes.entries()) {
+      const active = userStrikes.filter(s => Date.now() - s.time < thirtyDays);
 
-    if (active.length !== userStrikes.length) {
-      strikes.set(userId, active);
-      changed = true;
+      if (active.length !== userStrikes.length) {
+        strikes.set(userId, active);
+        changed = true;
+      }
     }
+
+    if (changed) saveData();
   }
 
-  if (changed) saveData();
-}
+  async function alertFiveStrikes(guild, userId, currentStrikes, reason, givenBy) {
+    if (!guild || !currentStrikes || currentStrikes.length !== 5) return;
 
-            // LEVEL SYSTEM
+    const alertChannel =
+      guild.channels.cache.get(CHANNELS.adminLogs) ||
+      guild.channels.cache.get(CHANNELS.strikeLogs) ||
+      guild.channels.cache.get(CHANNELS.botLogs);
+
+    if (!alertChannel) return;
+
+    const embed = new EmbedBuilder()
+      .setTitle("⚠️ Staff Reached 5 Strikes")
+      .setColor(0xff3b3b)
+      .setDescription(
+        `<@${userId}> has reached **5 active strikes**.\n\n` +
+        `Admin review is now required.`
+      )
+      .addFields(
+        {
+          name: "Staff Member",
+          value: `<@${userId}>`,
+          inline: true
+        },
+        {
+          name: "Total Active Strikes",
+          value: `${currentStrikes.length}`,
+          inline: true
+        },
+        {
+          name: "Latest Reason",
+          value: reason || "No reason provided",
+          inline: false
+        },
+        {
+          name: "Latest Strike Given By",
+          value: givenBy ? `<@${givenBy}>` : "Unknown",
+          inline: true
+        }
+      )
+      .setFooter({
+        text: "Lunar Strike Alert • Admin action required"
+      })
+      .setTimestamp();
+
+    await alertChannel.send({
+      content: `<@&${ROLES.admin}>`,
+      embeds: [embed],
+      allowedMentions: {
+        roles: [ROLES.admin]
+      }
+    }).catch(() => null);
+  }
+
+            function getTodayKey() {
+              return new Intl.DateTimeFormat("en-CA", {
+                timeZone: "Asia/Kolkata",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit"
+              }).format(new Date());
+            }
+
+            function isStaffMember(member) {
+              if (!member) return false;
+
+              return (
+                member.roles.cache.has(ROLES.trial) ||
+                member.roles.cache.has(ROLES.mod) ||
+                member.roles.cache.has(ROLES.headmod) ||
+                member.roles.cache.has(ROLES.admin) ||
+                member.roles.cache.has(ROLES.owner) ||
+                member.roles.cache.has(ROLES.ultimate)
+              );
+            }
+
+// LEVEL SYSTEM
 function getUserLevel(member) {
   if (!member) return 0;
 
@@ -336,6 +421,7 @@ function buildHelpCategoryEmbed(category, level) {
       .setTitle("👑 Staff Commands")
       .setDescription(
         "`/staff profile` - View staff profile\n" +
+        "`/staff rate` - Give +1 daily rating to a staff member\n" +
         "`/staff weeklyreport` - Weekly activity report\n" +
         "`/staff resetmonth` - Reset monthly points\n" +
         "`.staffstats` - Staff stats\n" +
@@ -1420,6 +1506,13 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
     strikes.set(executor.id, current);
     saveData();
+    await alertFiveStrikes(
+      newMember.guild,
+      executor.id,
+      current,
+      "Role abuse prevented",
+      client.user.id
+    );
 
     const roleList = abusedRoles.map(role => `<@&${role.id}>`).join(", ");
 
@@ -1466,27 +1559,30 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
             // COMMAND HANDLER (ONLY ONE)
             client.on("messageCreate", async (message) => {
               if (message.author.bot) return;
-              // 📊 MESSAGE TRACKER
-              const stats =
-                messageStats.get(message.author.id) || {
+              // 📊 MESSAGE TRACKER - only count giveaway requirement channel
+              const GIVEAWAY_MESSAGE_CHANNEL = "1500366243528572959";
 
-                  daily: 0,
-                  weekly: 0,
-                  monthly: 0,
-                  total: 0
-                };
+              if (message.channel.id === GIVEAWAY_MESSAGE_CHANNEL) {
+                const stats =
+                  messageStats.get(message.author.id) || {
+                    daily: 0,
+                    weekly: 0,
+                    monthly: 0,
+                    total: 0
+                  };
 
-              stats.daily++;
-              stats.weekly++;
-              stats.monthly++;
-              stats.total++;
+                stats.daily++;
+                stats.weekly++;
+                stats.monthly++;
+                stats.total++;
 
-              messageStats.set(
-                message.author.id,
-                stats
-              );
+                messageStats.set(
+                  message.author.id,
+                  stats
+                );
 
-              saveData();
+                saveData();
+              }
 
               // 🚨 ANTI EVERYONE PING
               if (
@@ -2304,6 +2400,13 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
                 saveData();
                 addPoints(message.author.id, "strike");
+                await alertFiveStrikes(
+                  message.guild,
+                  user.id,
+                  current,
+                  reason,
+                  message.author.id
+                );
 
                 message.channel.send(
               `⚠️ Strike #${strikeId} added to <@${user.id}>
@@ -2324,37 +2427,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     )
                     .setTimestamp();
 
-                  logChannel.send({ embeds: [embed] });
+                logChannel.send({ embeds: [embed] });
+                }
                 }
 
-                if (current.length >= 5) {
-
-                  const targetMember = message.guild.members.cache.get(user.id);
-                  if (!targetMember) return;
-
-                  if (targetMember.roles.cache.has(ROLES.trial)) {
-                    targetMember.roles.remove(ROLES.trial);
-                    message.channel.send(`🚫 Trial Mod role removed from <@${user.id}>`);
-                  }
-
-                  else if (targetMember.roles.cache.has(ROLES.mod)) {
-                    targetMember.roles.remove(ROLES.mod);
-                    message.channel.send(`🚫 Mod role removed from <@${user.id}>`);
-                  }
-
-                  else if (targetMember.roles.cache.has(ROLES.headmod)) {
-                    message.channel.send(
-              `⚠️ Head Mod reached 5 strikes!
-
-              <@&${ROLES.admin}> please review this situation.`
-                    );
-                  }
-                }
-              }
-
-
-              // 🔥 REMOVE STRIKE (NOW SEPARATE ✅)
-              if (cmd === "removestrike") {
+                // 🔥 REMOVE STRIKE (NOW SEPARATE ✅)
+                if (cmd === "removestrike") {
 
                 const user = message.mentions.users.first();
                 const strikeNumber = parseInt(args[1]);
@@ -3626,9 +3704,14 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     commandName === "staff" &&
                     subcommandName === "profile";
 
+                  const isPublicStaffRate =
+                    commandName === "staff" &&
+                    subcommandName === "rate";
+
                   const isPublicCommand =
                     commandName === "help" ||
-                    isPublicStaffProfile;
+                    isPublicStaffProfile ||
+                    isPublicStaffRate;
 
                   const level = getUserLevel(interaction.member);
 
@@ -3775,15 +3858,10 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   interaction.isChatInputCommand() &&
                   interaction.commandName === "strike"
                 ) {
+                  const user = interaction.options.getUser("user");
+                  const reason = interaction.options.getString("reason") || "No reason";
 
-                  const user =
-                    interaction.options.getUser("user");
-
-                  const reason =
-                    interaction.options.getString("reason");
-
-                  const targetMember =
-                    interaction.guild.members.cache.get(user.id);
+                  const targetMember = interaction.guild.members.cache.get(user.id);
 
                   if (!targetMember) {
                     return interaction.reply({
@@ -3791,7 +3869,94 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       ephemeral: true
                     });
                   }
+
+                  const level = getUserLevel(interaction.member);
+
+                  if (level < 2 && !isBypass(interaction.member)) {
+                    return interaction.reply({
+                      content: "❌ Head Mod/Admin only.",
+                      ephemeral: true
+                    });
                   }
+
+                  const isTargetStaff =
+                    targetMember.roles.cache.has(ROLES.trial) ||
+                    targetMember.roles.cache.has(ROLES.mod) ||
+                    targetMember.roles.cache.has(ROLES.headmod);
+
+                  if (!isTargetStaff) {
+                    return interaction.reply({
+                      content: "❌ We can only strike staff members.",
+                      ephemeral: true
+                    });
+                  }
+
+                  if (isBypass(targetMember)) {
+                    return interaction.reply({
+                      content: "❌ You cannot strike boss roles.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const current = strikes.get(user.id) || [];
+                  const strikeId = current.length + 1;
+
+                  current.push({
+                    id: strikeId,
+                    reason,
+                    by: interaction.user.id,
+                    time: Date.now()
+                  });
+
+                  strikes.set(user.id, current);
+                  saveData();
+                  addPoints(interaction.user.id, "strike");
+
+                  await alertFiveStrikes(
+                    interaction.guild,
+                    user.id,
+                    current,
+                    reason,
+                    interaction.user.id
+                  );
+
+                  const embed = new EmbedBuilder()
+                    .setTitle("⚠️ Strike Added")
+                    .setColor(0xff3b3b)
+                    .addFields(
+                      {
+                        name: "Staff",
+                        value: `<@${user.id}>`,
+                        inline: true
+                      },
+                      {
+                        name: "Strike",
+                        value: `#${strikeId}`,
+                        inline: true
+                      },
+                      {
+                        name: "Reason",
+                        value: reason,
+                        inline: false
+                      },
+                      {
+                        name: "Given By",
+                        value: `<@${interaction.user.id}>`,
+                        inline: true
+                      }
+                    )
+                    .setTimestamp();
+
+                  const logChannel = interaction.guild.channels.cache.get(CHANNELS.strikeLogs);
+                  if (logChannel) {
+                    logChannel.send({ embeds: [embed] }).catch(() => null);
+                  }
+
+                  return interaction.reply({
+                    embeds: [embed],
+                    ephemeral: true
+                  });
+                }
 
                   // ➕ SLASH ADDPOINTS
                   if (
@@ -4125,6 +4290,77 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   });
                 }
 
+                // ⭐ STAFF RATING
+                if (
+                  interaction.isChatInputCommand() &&
+                  interaction.commandName === "staff" &&
+                  interaction.options.getSubcommand() === "rate"
+                ) {
+                  const user = interaction.options.getUser("user");
+                  const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+
+                  if (!member || !isStaffMember(member)) {
+                    return interaction.reply({
+                      content: "❌ You can only rate staff members.",
+                      ephemeral: true
+                    });
+                  }
+
+                  if (user.id === interaction.user.id) {
+                    return interaction.reply({
+                      content: "❌ You cannot rate yourself.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const today = getTodayKey();
+
+                  const ratingData = staffRatings.get(user.id) || {
+                    total: 0,
+                    daily: {}
+                  };
+
+                  if (!ratingData.daily[today]) {
+                    ratingData.daily[today] = [];
+                  }
+
+                  if (ratingData.daily[today].includes(interaction.user.id)) {
+                    return interaction.reply({
+                      content: "❌ You already rated this staff member today. Try again tomorrow.",
+                      ephemeral: true
+                    });
+                  }
+
+                  ratingData.total += 1;
+                  ratingData.daily[today].push(interaction.user.id);
+
+                  staffRatings.set(user.id, ratingData);
+                  saveData();
+
+                  const embed = new EmbedBuilder()
+                    .setTitle("⭐ Staff Rated")
+                    .setColor(0x57f287)
+                    .setDescription(`<@${interaction.user.id}> gave **+1 rating** to <@${user.id}>.`)
+                    .addFields(
+                      {
+                        name: "Total Community Rating",
+                        value: `${ratingData.total}`,
+                        inline: true
+                      },
+                      {
+                        name: "Today",
+                        value: `${ratingData.daily[today].length} rating(s)`,
+                        inline: true
+                      }
+                    )
+                    .setFooter({ text: "You can rate the same staff once per day" })
+                    .setTimestamp();
+
+                  return interaction.reply({
+                    embeds: [embed]
+                  });
+                }
+                
                 // 👤 STAFF PROFILE
                 if (
                   interaction.isChatInputCommand() &&
@@ -4161,16 +4397,65 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     strikes: 0
                   };
 
-                  const activeStrikes = strikes.get(user.id) || [];
+                    const activeStrikes = strikes.get(user.id) || [];
+                  const communityRating = staffRatings.get(user.id) || {
+                    total: 0,
+                    daily: {}
+                  };
 
-                  const embed = new EmbedBuilder()
-                    .setTitle("✨ Staff Profile")
+                    let roleType = "Staff";
+
+                    if (member.roles.cache.has(ROLES.ultimate)) roleType = "Ultimate";
+                    else if (member.roles.cache.has(ROLES.owner)) roleType = "Owner";
+                    else if (member.roles.cache.has(ROLES.admin)) roleType = "Admin";
+                    else if (member.roles.cache.has(ROLES.headmod)) roleType = "Head Mod";
+                    else if (member.roles.cache.has(ROLES.mod)) roleType = "Moderator";
+                    else if (member.roles.cache.has(ROLES.trial)) roleType = "Trial Mod";
+
+                    const isBossProfile =
+                      member.roles.cache.has(ROLES.ultimate) ||
+                      member.roles.cache.has(ROLES.owner) ||
+                      member.roles.cache.has(ROLES.admin);
+
+                    const strikeProfileField = isBossProfile
+                      ? {
+                          name: "⚠️ Strikes Given",
+                          value: `${data.strikes || 0}`,
+                          inline: true
+                        }
+                      : {
+                          name: "⚠️ Active Strikes",
+                          value: `${activeStrikes.length}`,
+                          inline: true
+                        };
+
+                    const ratingScore =
+                      (data.monthly || 0) +
+                      ((data.modlogs || 0) * 5) +
+                      ((data.tickets || 0) * 3) +
+                      ((data.giveaways || 0) * 2) -
+                      (isBossProfile ? 0 : activeStrikes.length * 10);
+
+                    let rating = "⭐ Rookie";
+
+                    if (ratingScore >= 250) rating = "🌟 Elite";
+                    else if (ratingScore >= 150) rating = "💎 Excellent";
+                    else if (ratingScore >= 75) rating = "🔥 Active";
+                      else if (ratingScore >= 25) rating = "✅ Good";
+
+                      const embed = new EmbedBuilder()
+                        .setTitle("✨ Staff Profile")
                     .setColor(0x5865f2)
                     .setThumbnail(user.displayAvatarURL())
                     .addFields(
                       {
                         name: "👤 Staff",
                         value: `<@${user.id}>`,
+                        inline: true
+                      },
+                      {
+                        name: "🛡️ Role Type",
+                        value: roleType,
                         inline: true
                       },
                       {
@@ -4198,9 +4483,15 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                         value: `${data.giveaways}`,
                         inline: true
                       },
+                      strikeProfileField,
                       {
-                        name: "⚠️ Active Strikes",
-                        value: `${activeStrikes.length}`,
+                        name: "⭐ Staff Rating",
+                        value: rating,
+                        inline: true
+                      },
+                      {
+                        name: "🌟 Community Rating",
+                        value: `${communityRating.total || 0}`,
                         inline: true
                       }
                     )
@@ -4254,9 +4545,13 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       interaction.commandName === "staff" &&
                       interaction.options.getSubcommand() === "weeklyreport"
                     ) {
-                      await interaction.deferReply({
-                        ephemeral: true
-                      });
+                      if (!interaction.deferred && !interaction.replied) {
+                        try {
+                          await interaction.deferReply({ ephemeral: true });
+                        } catch (err) {
+                          if (err.code !== 40060) throw err;
+                        }
+                      }
 
                       if (!isBypass(interaction.member)) {
                         return interaction.editReply({
@@ -4383,7 +4678,17 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   interaction.isChatInputCommand() &&
                   interaction.commandName === "health"
                 ) {
-                  const me = interaction.guild.members.me;
+                  await interaction.deferReply({ ephemeral: true });
+
+                  const me =
+                    interaction.guild.members.me ||
+                    await interaction.guild.members.fetchMe().catch(() => null);
+
+                  if (!me) {
+                    return interaction.editReply({
+                      content: "❌ Could not fetch bot member data."
+                    });
+                  }
 
                   const checks = [
                     `Guild Members Intent: ✅`,
@@ -4400,9 +4705,8 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     .setDescription(checks.join("\n"))
                     .setTimestamp();
 
-                  return interaction.reply({
-                    embeds: [embed],
-                    ephemeral: true
+                  return interaction.editReply({
+                    embeds: [embed]
                   });
                 }
                 // 🎉 PREMIUM GIVEAWAY CREATE
@@ -5714,8 +6018,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     });
                   }
 
-                await interaction.deferReply({ ephemeral: true });
-                g.channel.send(`✅ <@${interaction.user.id}> claimed in time`);
+                  await interaction.deferReply({ ephemeral: true });
+
+                  const giveawayChannel = await getGiveawayChannel(g);
+                  if (giveawayChannel) {
+                    await giveawayChannel.send(`✅ <@${interaction.user.id}> claimed in time`);
+                  }
 
                 const guild = interaction.guild;
                 const member = guild.members.cache.get(interaction.user.id);
@@ -5823,9 +6131,44 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       .setStyle(ButtonStyle.Secondary)
                   );
 
-                  channel.send({
+                  await channel.send({
                     embeds: [claimPanelEmbed],
                     components: [claimStatusRow]
+                  });
+                  const ticketUrl = `https://discord.com/channels/${guild.id}/${channel.id}`;
+
+                  const ticketDirectionEmbed = new EmbedBuilder()
+                    .setTitle("🎁 Claim Ticket Created")
+                    .setColor(0x57f287)
+                    .setDescription(
+                      `Your prize claim ticket has been created.\n\n` +
+                      `Go to ${channel} and follow the instructions there.`
+                    )
+                    .addFields(
+                      {
+                        name: "Prize",
+                        value: g.prize || "Prize",
+                        inline: true
+                      },
+                      {
+                        name: "Host",
+                        value: `<@${hostId}>`,
+                        inline: true
+                      }
+                    )
+                    .setFooter({ text: "Only you can see this message" })
+                    .setTimestamp();
+
+                  const ticketDirectionRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                      .setLabel("Open Claim Ticket")
+                      .setStyle(ButtonStyle.Link)
+                      .setURL(ticketUrl)
+                  );
+
+                  await interaction.editReply({
+                    embeds: [ticketDirectionEmbed],
+                    components: [ticketDirectionRow]
                   });
 
                   const logChannel = guild.channels.cache.get(CHANNELS.botLogs);
@@ -6486,10 +6829,20 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
             });
 
+            async function getGiveawayChannel(g) {
+              const channelId = g.channelId || g.channel?.id;
+
+              if (!channelId) return null;
+
+              return client.channels.cache.get(channelId) ||
+                await client.channels.fetch(channelId).catch(() => null);
+            }
             // END GIVEAWAY
             async function endGiveaway(id) {
               const g = giveaways.get(id);
               if (!g || g.ended) return;
+              const giveawayChannel = await getGiveawayChannel(g);
+              if (!giveawayChannel) return;
 
               g.ended = true;
 
@@ -6539,7 +6892,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
               }
 
               if (winners.length === 0) {
-                return g.channel.send("❌ No participants.");
+                return giveawayChannel.send("❌ No participants.");
               }
 
               fixedWinners.delete(id);
@@ -6629,7 +6982,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                 })
                 .setTimestamp();
 
-              g.channel.send({
+              giveawayChannel.send({
                 embeds: [embed],
                 components: [row]
               });
@@ -6684,15 +7037,20 @@ async function startClaim(g, userId, giveawayId) {
 
                   saveData();
 
-                  g.channel.send("❌ Not claimed → Rerolling...");
+                  const giveawayChannel = await getGiveawayChannel(g);
+                  if (giveawayChannel) {
+                    await giveawayChannel.send("❌ Not claimed → Rerolling...");
+                  }
 
-                  reroll(g, giveawayId);
+                  await reroll(g, giveawayId);
                 }
               }, g.claimTime);
             }
 
             // REROLL
-function reroll(g, giveawayId) {
+  async function reroll(g, giveawayId) {
+    const giveawayChannel = await getGiveawayChannel(g);
+    if (!giveawayChannel) return;
 
               const available = g.users.filter(u =>
                 !g.failed.includes(u) &&
@@ -6700,7 +7058,7 @@ function reroll(g, giveawayId) {
               );
 
               if (available.length === 0) {
-                return g.channel.send("⚠️ No eligible participants left.");
+                return giveawayChannel.send("⚠️ No eligible participants left.");
               }
 
               const winner = available[Math.floor(Math.random() * available.length)];
@@ -6779,10 +7137,10 @@ function reroll(g, giveawayId) {
       .setStyle(ButtonStyle.Success)
   );
 
-  g.channel.send({
-    embeds: [embed],
-    components: [row]
-  });
+    giveawayChannel.send({
+      embeds: [embed],
+      components: [row]
+    });
 
   startClaim(g, winner, giveawayId);
             }
@@ -6814,26 +7172,30 @@ function reroll(g, giveawayId) {
                 message.reply("✅ Payment verified by staff. Closing ticket...");
 
                 setTimeout(async () => {
-
                   const channel = message.channel;
 
-                  // send message safely
-                  await channel.send("🔒 Auto closing ticket...").catch(() => {});
-                  const attachment = await transcripts.createTranscript(channel);
+                  if (!channel || !channel.guild) return;
 
-                  const logChannel = message.guild.channels.cache.get(CHANNELS.botLogs);
+                  await channel.send("🔒 Auto closing ticket...").catch(() => null);
+
+                  const attachment = await transcripts
+                    .createTranscript(channel)
+                    .catch(() => null);
+
+                  const logChannel = channel.guild.channels.cache.get(CHANNELS.botLogs);
+
                   if (logChannel) {
-                    logChannel.send({
+                    await logChannel.send({
                       content: `📄 Auto Ticket Closed\nChannel: ${channel.name}\nVerified by: <@${user.id}>`,
-                      files: [attachment]
-                    });
+                      files: attachment ? [attachment] : []
+                    }).catch(() => null);
                   }
 
-                  // small delay before delete
                   setTimeout(() => {
-                    channel.delete().catch(() => {});
+                    if (channel && channel.deletable) {
+                      channel.delete().catch(() => null);
+                    }
                   }, 1000);
-
                 }, 3000);
               }
 

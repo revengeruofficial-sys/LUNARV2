@@ -244,22 +244,39 @@ const commands = [
       .setRequired(false)
   ),
   new SlashCommandBuilder()
-    .setName("staff")
-    .setDescription("Staff profile and management")
-    .addSubcommand(sub =>
-      sub
-        .setName("profile")
-        .setDescription("View a staff profile")
-        .addUserOption(option =>
-          option.setName("user").setDescription("Staff user").setRequired(false)
-        )
-    )
-        .addSubcommand(sub =>
+  .setName("staff")
+  .setDescription("Staff profile and management")
+  .addSubcommand(sub =>
+    sub
+      .setName("profile")
+      .setDescription("View a staff profile")
+      .addUserOption(option =>
+        option
+          .setName("user")
+          .setDescription("Staff user")
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(sub =>
+    sub
+      .setName("rate")
+      .setDescription("Give +1 daily rating to a staff member")
+      .addUserOption(option =>
+        option
+          .setName("user")
+          .setDescription("Staff member to rate")
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(sub =>
     sub
       .setName("resetmonth")
       .setDescription("Reset monthly staff points")
       .addBooleanOption(option =>
-        option.setName("confirm").setDescription("Confirm monthly reset").setRequired(true)
+        option
+          .setName("confirm")
+          .setDescription("Confirm monthly reset")
+          .setRequired(true)
       )
   )
   .addSubcommand(sub =>
