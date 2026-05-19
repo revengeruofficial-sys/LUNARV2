@@ -901,11 +901,6 @@ function formatDuration(ms) {
 
       const fields = [
         {
-          name: "🎁 Prize",
-          value: g.prize || "Prize",
-          inline: true
-        },
-        {
           name: "👑 Winners",
           value: `${g.winnerCount || 1}`,
           inline: true
@@ -2459,11 +2454,6 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   .setDescription(`## 🎁 ${prize}`)
                   .setColor(0xff4d6d)
                   .addFields(
-                    {
-                      name: "🎁 Prize",
-                      value: prize,
-                      inline: true
-                    },
                     {
                       name: "⏰ Duration",
                       value: durationInput,
@@ -4276,11 +4266,6 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     .setColor(0xff4d6d)
                     .addFields(
                       {
-                        name: "🎁 Prize",
-                        value: prize,
-                        inline: true
-                      },
-                      {
                         name: "⏰ Duration",
                         value: durationInput,
                         inline: true
@@ -5344,13 +5329,6 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                           .setColor(0xff4d6d)
 
                       .addFields(
-
-                        {
-                          name: "🎁 Prize",
-                          value: prize,
-                          inline: true
-                        },
-
                         {
                           name: "👑 Winners",
                           value: `${winners}`,
@@ -7559,11 +7537,6 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     inline: true
                   },
                   {
-                    name: "🎁 Prize",
-                    value: g.prize || "Prize",
-                    inline: true
-                  },
-                  {
                     name: "⏰ Claim Time",
                     value: `${g.claimTime / 1000}s`,
                     inline: true
@@ -7745,11 +7718,6 @@ async function startClaim(g, userId, giveawayId) {
                   {
                     name: "🏆 New Winner",
                     value: `<@${winner}>`,
-                    inline: true
-                  },
-                  {
-                    name: "🎁 Prize",
-                    value: g.prize || "Prize",
                     inline: true
                   },
                   {
