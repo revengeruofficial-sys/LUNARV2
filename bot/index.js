@@ -34,35 +34,77 @@ const giveawayBlacklist = new Map();
 
             // ROLES
             const ROLES = {
-              ultimate: "1500366242140258420",
-              owner: "1500366242140258419",
-              admin: "1500366242140258418",
-              whitelist: "1500366242140258417",
-              headmod: "1500366242123485196",
-              mod: "1500366242123485195",
-              trial: "1500366242123485194",
-              cooldown: "1500366242022686845",
-              gwyBanned: "1500366242022686844",
-              eventBan: "1500366242022686843",
-              brookArmy: "1500366242022686846",
-              valorant: "1500366242052313120",
-              dashRole: "1500366242110767138",
-              dotRole: "1500366242110767137",
-              muted: "1500366242123485198",
-              booster: "1500366242140258415",
-              motm: "1500366242123485197",
+              ultimate: "1380078875626700851",
+              owner: "1366645098359685183",
+              admin: "1366645112234315818",
+              whitelist: "1424453163464786011",
+              headmod: "1495763550650630255",
+              mod: "1366645101685903391",
+              trial: "1379001032197279795",
+              cooldown: "1476454062605209693",
+              gwyBanned: "1390675664159506523",
+              eventBan: "1395348953603768391",
+              brookArmy: "1406646672829841608",
+              valorant: "1411728410723750050",
+              dashRole: "1405606969959518270",
+              dotRole: "1399675259061276702",
+              muted: "1413142263298658355",
+              booster: "1384106733374410843",
+              motm: "1363682773038010468",
             };
 
             // CHANNELS
             const CHANNELS = {
-              adminLogs: "1500366245399367818",
-              botLogs: "1500366245399367816",
-              ticketCategory: "1500366244145135660",
-              ticketPanel: "1500366244145135661",
-              strikeLogs: "1500366245399367818",
-              modLogs: "1500370378307141762",
-              motmAnnouncements: "1501905305544425532",
+              adminLogs: "1381173430472282163",
+              botLogs: "1386717650511466618",
+              giveawayLogs: "1318164139788468227",
+              ticketCategory: "1323670067782619208",
+              ticketPanel: "1397264703373443233",
+              strikeLogs: "1381173430472282163",
+              modLogs: "1506172574189617202",
+              motmAnnouncements: "1422082737241587752",
             };
+
+          const TRUSTED_BOTS = [
+            "235148962103951360", // Carl-bot
+            "557628352828014614", // Ticket Tool
+            "155149108183695360", // Dyno
+            "530082442967646230", // Giveaway Boat
+            "282859044593598464", // ProBot
+            "437808476106784770", // Arcane
+            "426537812993638400", // Bloxlink
+            "456633518882160642", // YouTube
+            "282286160494067712",  // Pingcord
+            "472911936951156740", // Voice Master
+            "458276816071950337", // ServerStats
+          ];
+
+          function isTrustedBot(member) {
+            return member?.user?.bot && TRUSTED_BOTS.includes(member.id);
+          }
+
+          const PROTECTED_PING_USERS = [
+            "1022929219690434560", // Takila
+            "1288801215282413644", // Hiro
+            "1057967090906173490", // Aniket
+            "1317889415774994444"  // Brook
+          ];
+
+function canPingProtected(member) {
+  if (!member) return false;
+
+  return (
+    member.roles.cache.has(ROLES.owner) ||
+    member.roles.cache.has(ROLES.admin) ||
+    member.roles.cache.has(ROLES.ultimate) ||
+    member.roles.cache.has(ROLES.headmod) ||
+    member.roles.cache.has(ROLES.mod) ||
+    member.roles.cache.has(ROLES.trial) ||
+    member.roles.cache.has("1318177382921928805") || // Youtuber
+    member.roles.cache.has("1336072860879556639") || // Friends
+    member.roles.cache.has("1464333464361767103")    // YouTube Member
+  );
+}
 
             // STORAGE
             const giveaways = new Map();
@@ -326,6 +368,7 @@ function buildHelpEmbed(level) {
       name: "Level 1 Staff Commands",
       value:
         "`.modlog` - Submit/view moderation log\n" +
+        "`/cases` - View moderation cases\n" +
         "`.close` - Close ticket/channel\n" +
         "`.gblacklist` - Blacklist user from giveaways\n" +
         "`.staffstats` - View staff stats",
@@ -579,6 +622,197 @@ function buildHelpMenu(level) {
                 member.roles.cache.has(ROLES.admin)
               );
             }
+function getCases(filterUserId = null) {
+  return [...punishmentLogs.values()]
+    .filter(log => !filterUserId || log.target === filterUserId)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+}
+
+function getCaseStatusText(log) {
+  if (log.status === "Approved") {
+    return `✅ Approved${log.reviewedBy ? ` by <@${log.reviewedBy}>` : ""}`;
+  }
+
+  if (log.status === "Rejected") {
+    return `❌ Rejected${log.reviewedBy ? ` by <@${log.reviewedBy}>` : ""}`;
+  }
+
+  return "⏳ Pending Review";
+}
+
+function buildCasesEmbed(cases, page, filterUserId = null) {
+  const perPage = 3;
+  const totalPages = Math.max(1, Math.ceil(cases.length / perPage));
+  const start = page * perPage;
+  const visibleCases = cases.slice(start, start + perPage);
+
+  const embed = new EmbedBuilder()
+    .setTitle("📚 Case Records")
+    .setColor(0x5865f2)
+    .setDescription(
+      filterUserId
+        ? `Showing cases for <@${filterUserId}>`
+        : "Showing all moderation cases"
+    )
+    .setFooter({
+      text: `Page ${page + 1}/${totalPages} • ${cases.length} total cases`
+    })
+    .setTimestamp();
+
+  if (!visibleCases.length) {
+    embed.addFields({
+      name: "No cases found",
+      value: "No moderation cases match this view.",
+      inline: false
+    });
+
+    return embed;
+  }
+
+  for (const log of visibleCases) {
+    const caseTime = log.timestamp
+      ? `<t:${Math.floor(log.timestamp / 1000)}:R>`
+      : "Unknown";
+
+    const caseId = log.caseId || log.id || "Unknown";
+    const status = getCaseStatusText(log);
+
+    embed.addFields(
+      {
+        name: `#${caseId} • ${log.type || "Unknown"}`,
+        value:
+          `**Status:** ${status}\n` +
+          `**Target:** <@${log.target}>\n` +
+          `**Moderator:** <@${log.moderator}>`,
+        inline: false
+      },
+      {
+        name: "Reason",
+        value: log.reason || "No reason provided",
+        inline: true
+      },
+      {
+        name: "Proof",
+        value: log.proof ? `[Open](${log.proof})` : "None",
+        inline: true
+      },
+      {
+        name: "Created",
+        value: caseTime,
+        inline: true
+      }
+    );
+
+    if (log.rejectReason) {
+      embed.addFields({
+        name: "Reject Reason",
+        value: log.rejectReason,
+        inline: false
+      });
+    }
+  }
+
+  return embed;
+}
+
+function buildCasesButtons(page, totalCases, viewerId, filterUserId = "all") {
+  const perPage = 3;
+  const totalPages = Math.max(1, Math.ceil(totalCases / perPage));
+
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`cases_prev_${page}_${viewerId}_${filterUserId}`)
+      .setLabel("Previous")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page <= 0),
+
+    new ButtonBuilder()
+      .setCustomId(`cases_next_${page}_${viewerId}_${filterUserId}`)
+      .setLabel("Next")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(page >= totalPages - 1)
+  );
+}
+async function sendGiveawayAuditLog(guild, action, giveawayId, g, actor, details = {}) {
+  if (!guild) return;
+
+  const logChannel =
+    guild.channels.cache.get(CHANNELS.giveawayLogs) ||
+    guild.channels.cache.get(CHANNELS.botLogs);
+
+  if (!logChannel) return;
+
+  const colors = {
+    created: 0x57f287,
+    edited: 0xffcc00,
+    ended: 0xff4d6d,
+    rerolled: 0xff9800,
+    removed: 0xff3b3b
+  };
+
+  const titles = {
+    created: "Giveaway Created",
+    edited: "Giveaway Edited",
+    ended: "Giveaway Ended",
+    rerolled: "Giveaway Rerolled",
+    removed: "Giveaway User Removed"
+  };
+
+  const embed = new EmbedBuilder()
+    .setTitle(titles[action] || "Giveaway Audit")
+    .setColor(colors[action] || 0x5865f2)
+    .addFields(
+      {
+        name: "Giveaway ID",
+        value: `\`${giveawayId}\``,
+        inline: true
+      },
+      {
+        name: "Prize",
+        value: g?.prize || "Prize",
+        inline: true
+      },
+      {
+        name: "Actor",
+        value: actor ? `<@${actor.id}>` : "System",
+        inline: true
+      },
+      {
+        name: "Host",
+        value: g?.host ? `<@${g.host}>` : "Unknown",
+        inline: true
+      },
+      {
+        name: "Channel",
+        value: g?.channelId ? `<#${g.channelId}>` : "Unknown",
+        inline: true
+      },
+      {
+        name: "Entries",
+        value: `${g?.users?.length || 0}`,
+        inline: true
+      }
+    )
+    .setTimestamp();
+
+  if (details.summary) {
+    embed.addFields({
+      name: "Details",
+      value: details.summary,
+      inline: false
+    });
+  }
+
+  if (g?.messageUrl) {
+    embed.addFields({
+      name: "Message",
+      value: `[Jump to giveaway](${g.messageUrl})`,
+      inline: false
+    });
+  }
+
+  await logChannel.send({ embeds: [embed] }).catch(() => {});
+}
 
             // STAFF POINTS
             function addPoints(userId, type) {
@@ -637,6 +871,14 @@ function parseTime(str) {
 
       return `<t:${unix}:R>\nEnds: <t:${unix}:F>`;
     }
+function formatDuration(ms) {
+  const totalSeconds = Math.max(1, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes <= 0) return `${seconds}s`;
+  return `${minutes}m ${seconds}s`;
+}
 
     function buildGiveawayEmbed(g) {
       let requirementText = "";
@@ -670,7 +912,11 @@ function parseTime(str) {
         },
         {
           name: "⏰ Ends",
-          value: g.endAt ? formatGiveawayTime(g.endAt) : (g.durationInput || "Unknown"),
+          value: g.paused
+          ? `⏸️ Paused\nRemaining: ${formatDuration(g.remainingTime || 1000)}`
+          : g.endAt
+            ? formatGiveawayTime(g.endAt)
+            : (g.durationInput || "Unknown"),
           inline: true
         },
         {
@@ -678,6 +924,14 @@ function parseTime(str) {
           value: `<@${g.host}>`,
           inline: false
         },
+        
+        ...(g.sponsor
+          ? [{
+              name: "🎖️ Sponsored By",
+              value: `<@${g.sponsor}>`,
+              inline: false
+            }]
+          : []),
         {
           name: "🎟️ Entries",
           value: `${g.users?.length || 0}`,
@@ -686,9 +940,9 @@ function parseTime(str) {
         {
           name: "🎁 Extra Entries",
           value:
-            `<@&1500366242052313120> • +3 entries\n` +
-            `<@&1500366242110767134> • +3 entries\n` +
-            `<@&1500366242085732500> • +2 entries`,
+            `<@&1358683520578617444> • +3 entries\n` +
+            `<@&1384106733374410843> • +3 entries\n` +
+            `<@&1358681930480226496> • +2 entries`,
           inline: false
         }
       ];
@@ -710,6 +964,74 @@ function parseTime(str) {
         })
         .setTimestamp();
     }
+function buildEndedGiveawayEmbed(g, winners) {
+  return new EmbedBuilder()
+    .setTitle("GIVEAWAY ENDED")
+    .setColor(0xff4d6d)
+    .addFields(
+      {
+        name: "Prize",
+        value: g.prize || "Prize",
+        inline: false
+      },
+      {
+        name: `Winner${winners.length > 1 ? "s" : ""}`,
+        value: winners.map(id => `<@${id}>`).join("\n"),
+        inline: false
+      },
+      {
+        name: "Hosted by",
+        value: `<@${g.host}>`,
+        inline: false
+      },
+      ...(g.sponsor
+        ? [{
+            name: "Sponsored by",
+            value: `<@${g.sponsor}>`,
+            inline: false
+          }]
+        : [])
+    )
+    .setFooter({
+      text: `Ended at`
+    })
+    .setTimestamp();
+}
+
+function buildEndedGiveawayRow(g) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("enter")
+      .setEmoji("🎉")
+      .setLabel(`${g.users?.length || 0}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true),
+
+    new ButtonBuilder()
+      .setCustomId("participants")
+      .setEmoji("👥")
+      .setLabel("Participants")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true)
+  );
+}
+async function updateEndedGiveawayMessage(g, giveawayId) {
+  const giveawayChannel = await getGiveawayChannel(g);
+  if (!giveawayChannel) return;
+
+  const oldMessage = await giveawayChannel.messages.fetch(giveawayId).catch(() => null);
+  if (!oldMessage) return;
+
+  const finalWinners =
+    g.finalWinners && g.finalWinners.length > 0
+      ? g.finalWinners
+      : g.allWinners || [];
+
+  await oldMessage.edit({
+    embeds: [buildEndedGiveawayEmbed(g, finalWinners)],
+    components: [buildEndedGiveawayRow(g)]
+  }).catch(() => {});
+}
             // REMOVE GIVEAWAY COOLDOWN ROLE
             async function removeCooldownLater(member) {
 
@@ -866,7 +1188,7 @@ client.on("ready", () => {
                     ) ||
 
                     executor.roles.cache.has(
-                      "1500366242085732495"
+                      ROLES.ultimate
                     );
 
                   // ✅ ALLOWED
@@ -944,6 +1266,13 @@ client.on("ready", () => {
                     await channel.guild.members.fetch(
                       log.executor.id
                     );
+                  if (executor.id === client.user.id) return;
+                  if (isTrustedBot(executor)) return;
+
+                  if (
+                    channel.parentId === CHANNELS.ticketCategory ||
+                    channel.name?.startsWith("claim-")
+                  ) return;
 
                   // ✅ BYPASS USERS
                   const allowed =
@@ -961,7 +1290,7 @@ client.on("ready", () => {
                     ) ||
 
                     executor.roles.cache.has(
-                      "1500366242085732495"
+                      ROLES.ultimate
                     );
 
                   // ✅ ALLOWED
@@ -1062,6 +1391,7 @@ client.on("ready", () => {
                     await ban.guild.members.fetch(
                       log.executor.id
                     );
+                  if (isTrustedBot(executor)) return;
 
                   // ✅ BYPASS USERS
                   const allowed =
@@ -1079,7 +1409,7 @@ client.on("ready", () => {
                     ) ||
 
                     executor.roles.cache.has(
-                      "1500366242085732495"
+                      ROLES.ultimate
                     );
 
                   // ✅ ALLOWED
@@ -1216,6 +1546,7 @@ client.on("ready", () => {
                     await role.guild.members.fetch(
                       log.executor.id
                     );
+                  if (isTrustedBot(executor)) return;
 
                   // ✅ BYPASS USERS
                   const allowed =
@@ -1233,7 +1564,7 @@ client.on("ready", () => {
                     ) ||
 
                     executor.roles.cache.has(
-                      "1500366242085732495"
+                      ROLES.ultimate
                     );
 
                   // ✅ ALLOWED
@@ -1435,7 +1766,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
       executor.roles.cache.has(ROLES.ultimate) ||
       executor.roles.cache.has(ROLES.owner) ||
       executor.roles.cache.has(ROLES.admin) ||
-      executor.roles.cache.has("1500366242085732495");
+      executor.roles.cache.has(ROLES.ultimate);
 
     if (isBoss) return;
 
@@ -1560,7 +1891,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
             client.on("messageCreate", async (message) => {
               if (message.author.bot) return;
               // 📊 MESSAGE TRACKER - only count giveaway requirement channel
-              const GIVEAWAY_MESSAGE_CHANNEL = "1500366243528572959";
+              const GIVEAWAY_MESSAGE_CHANNEL = "1318168240383594527";
 
               if (message.channel.id === GIVEAWAY_MESSAGE_CHANNEL) {
                 const stats =
@@ -1584,16 +1915,18 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                 saveData();
               }
 
-              // 🚨 ANTI EVERYONE PING
-              if (
+                // 🚨 ANTI EVERYONE PING
+                if (
 
-                message.content.includes("@everyone") ||
-                message.content.includes("@here")
+                  message.content.includes("@everyone") ||
+                  message.content.includes("@here")
 
-              ) {
+                ) {
 
-                const member =
-                  message.member;
+                  if (message.author.bot && TRUSTED_BOTS.includes(message.author.id)) return;
+
+                  const member =
+                    message.member;
 
                 // ✅ BYPASS
                 if (
@@ -1611,7 +1944,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   ) ||
 
                   member.roles.cache.has(
-                    "1500366242085732495"
+                    ROLES.ultimate
                   )
 
                 ) return;
@@ -1665,6 +1998,43 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
                 return;
               }
+              const protectedUserPings = message.mentions.users.filter(user =>
+                PROTECTED_PING_USERS.includes(user.id)
+              );
+
+              if (protectedUserPings.size > 0 && !canPingProtected(message.member)) {
+                const pingedUsers = protectedUserPings
+                  .map(user => `<@${user.id}>`)
+                  .join("\n");
+
+                const embed = new EmbedBuilder()
+                  .setTitle("🔕 Please Avoid Pinging")
+                  .setColor(0xffcc00)
+                  .setDescription(
+                    "Please do not ping Him members unless it is truly required."
+                  )
+                  .addFields(
+                    {
+                      name: "Please Avoid Pinging",
+                      value: pingedUsers,
+                      inline: false
+                    },
+                    {
+                      name: "What to do instead",
+                      value: "Open a ticket or contact staff normally.",
+                      inline: false
+                    }
+                  )
+                  .setFooter({ text: "Lunar Ping Protection" })
+                  .setTimestamp();
+
+                await message.reply({
+                  embeds: [embed],
+                  allowedMentions: { repliedUser: false, parse: [] }
+                }).catch(() => {});
+
+                return;
+              }
               if (!message.content.startsWith(PREFIX)) return;
               // 🔐 GLOBAL PREFIX COMMAND PERMISSION GUARD
               const commandName = message.content
@@ -1696,10 +2066,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                 }
 
                 if (level < 1) {
-                  return message.reply({
-                    content: "❌ You do not have permission to use this command.",
-                    allowedMentions: { repliedUser: false }
-                  });
+                  return;
                 }
               }
 
@@ -1710,7 +2077,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
               const cmd = args.shift().toLowerCase();
 
               if (level === 0 && cmd !== "help") {
-                return message.reply("❌ No permission");
+                return;
               }
 
               // HELP
@@ -2058,6 +2425,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
                 let winnerCount = 1;
                 let prize = "";
+                let sponsor = message.mentions.users.first();
 
                 if (!isNaN(args[2])) {
 
@@ -2071,6 +2439,10 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                 }
 
                 if (!prize) prize = "Prize";
+                if (sponsor) {
+                  prize = prize.replace(`<@${sponsor.id}>`, "").replace(`<@!${sponsor.id}>`, "").trim();
+                  if (!prize) prize = "Prize";
+                }
 
                 const row = new ActionRowBuilder().addComponents(
                   new ButtonBuilder().setCustomId("enter").setLabel("🎉 Enter").setStyle(ButtonStyle.Primary)
@@ -2116,6 +2488,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       entryMap: {},
                       winnerCount,
                   claimTime,
+                      endAt: Date.now() + duration,
                   prize, // 🔥 ADD THIS
                       channel: message.channel,
                       channelId: message.channel.id,
@@ -2124,11 +2497,22 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       allWinners: [],
                       claimedUsers: [],
                       failed: [],
-                  host: message.author.id,
-                  messageUrl: msg.url
+                      host: message.author.id,
+                      sponsor: sponsor ? sponsor.id : null,
+                      messageUrl: msg.url
                 });
                 addPoints(message.author.id, "giveaway");
                 saveData();
+
+                await sendGiveawayAuditLog(
+                  message.guild,
+                  "created",
+                  msg.id,
+                  giveaways.get(msg.id),
+                  message.author,
+                  { summary: `Prefix giveaway created with **${winnerCount}** winner(s).` }
+                );
+
                 setTimeout(() => endGiveaway(msg.id), duration);
               }
 
@@ -3496,6 +3880,11 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   });
                 }
 
+                if (!g.endAt) {
+                  g.endAt = Date.now() + parseTime(g.durationInput || "1m");
+                }
+
+                g.remainingTime = Math.max(1000, g.endAt - Date.now());
                 g.paused = true;
 
                 saveData();
@@ -3517,6 +3906,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     new ActionRowBuilder().addComponents(button);
 
                   await msg.edit({
+                    embeds: [buildGiveawayEmbed(g)],
                     components: [row]
                   }).catch(() => {});
                 }
@@ -3593,7 +3983,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   });
                 }
 
+                const remainingTime = Math.max(1000, g.remainingTime || 60000);
+                g.endAt = Date.now() + remainingTime;
+                g.remainingTime = null;
                 g.paused = false;
+
+                setTimeout(() => endGiveaway(messageId), remainingTime);
 
                 saveData();
 
@@ -3626,6 +4021,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     );
 
                   await msg.edit({
+                    embeds: [buildGiveawayEmbed(g)],
                     components: [row]
                   }).catch(() => {});
                 }
@@ -3688,6 +4084,16 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
             // BUTTON HANDLER
               client.on("interactionCreate", async (interaction) => {
+                if (!interaction.guild) {
+                  if (interaction.isRepliable()) {
+                    return interaction.reply({
+                      content: "❌ Lunar commands can only be used inside the server.",
+                      ephemeral: true
+                    }).catch(() => {});
+                  }
+
+                  return;
+                }
                 // allow slash + buttons + modals
                 if (
                   !interaction.isButton() &&
@@ -3723,10 +4129,10 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       commandName === "staff" &&
                       ["resetmonth", "weeklyreport"].includes(subcommandName)
                     ) ||
-                    (
-                      commandName === "giveaway" &&
-                      ["edit", "removeuser"].includes(subcommandName)
-                    );
+                  (
+                    commandName === "giveaway" &&
+                    subcommandName === "removeuser"
+                  );
 
                   if (isLevel4Only && level < 4) {
                     return interaction.reply({
@@ -3741,6 +4147,45 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       ephemeral: true
                     });
                   }
+                }
+                // 📚 CASES PAGINATION
+                if (
+                  interaction.isButton() &&
+                  interaction.customId.startsWith("cases_")
+                ) {
+                  const parts = interaction.customId.split("_");
+                  const action = parts[1];
+                  const currentPage = Number(parts[2]);
+                  const viewerId = parts[3];
+                  const filterUserId = parts[4] === "all" ? null : parts[4];
+
+                  if (interaction.user.id !== viewerId) {
+                    return interaction.reply({
+                      content: "❌ This case panel is not yours.",
+                      ephemeral: true
+                    });
+                  }
+
+                  const cases = getCases(filterUserId);
+
+                  let nextPage = currentPage;
+                  if (action === "next") nextPage++;
+                  if (action === "prev") nextPage--;
+
+                  const totalPages = Math.max(1, Math.ceil(cases.length / 3));
+                  nextPage = Math.max(0, Math.min(nextPage, totalPages - 1));
+
+                  return interaction.update({
+                    embeds: [buildCasesEmbed(cases, nextPage, filterUserId)],
+                    components: [
+                      buildCasesButtons(
+                        nextPage,
+                        cases.length,
+                        interaction.user.id,
+                        filterUserId || "all"
+                      )
+                    ]
+                  });
                 }
                 // 🌙 HELP MENU - keep this near top so Discord gets fast response
                 if (
@@ -3766,6 +4211,32 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     components: [buildHelpMenu(level)]
                   });
                 }
+                
+                // 📚 CASES LIST
+                if (
+                  interaction.isChatInputCommand() &&
+                  interaction.commandName === "cases"
+                ) {
+                  const filterUser = interaction.options.getUser("user");
+                  const filterUserId = filterUser ? filterUser.id : null;
+
+                  const cases = getCases(filterUserId);
+                  const page = 0;
+
+                  const embed = buildCasesEmbed(cases, page, filterUserId);
+                  const row = buildCasesButtons(
+                    page,
+                    cases.length,
+                    interaction.user.id,
+                    filterUserId || "all"
+                  );
+
+                  return interaction.reply({
+                    embeds: [embed],
+                    components: [row],
+                    ephemeral: true
+                  });
+                }
                 // 🔥 SLASH GSTART
                 if (
                   interaction.isChatInputCommand() &&
@@ -3780,6 +4251,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
                   const prize =
                     interaction.options.getString("prize");
+                  const sponsor = interaction.options.getUser("sponsor");
 
                   const duration = parseTime(durationInput);
                   const claimTime = parseTime(claimInput);
@@ -3809,7 +4281,13 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                         name: "👑 Hosted By",
                         value: `<@${interaction.user.id}>`,
                         inline: true
-                      },
+                      },...(sponsor
+                        ? [{
+                            name: "🎖️ Sponsored By",
+                            value: `<@${sponsor.id}>`,
+                            inline: true
+                          }]
+                        : []),
                       {
                         name: "🎟️ Entries",
                         value: "0",
@@ -3831,6 +4309,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     users: [],
                     entryMap: {},
                     claimTime,
+                    endAt: Date.now() + duration,
                     prize,
                     requiredDaily: 0,
                     requiredWeekly: 0,
@@ -3840,6 +4319,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     lastWinner: null,
                     failed: [],
                     host: interaction.user.id,
+                    sponsor: sponsor ? sponsor.id : null,
                     messageUrl: msg.url
                   });
 
@@ -4058,9 +4538,9 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   interaction.commandName === "giveaway" &&
                   interaction.options.getSubcommand() === "edit"
                 ) {
-                  if (!isBypass(interaction.member)) {
+                  if (!isStaffMember(interaction.member)) {
                     return interaction.reply({
-                      content: "❌ Only Ultimate, Owner, or Admin can edit giveaways.",
+                      content: "❌ Staff only. Trial Mod, Mod, Head Mod, Admin, Owner, or Ultimate can edit giveaways.",
                       ephemeral: true
                     });
                   }
@@ -4192,6 +4672,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   const parts = interaction.customId.split("_");
                   const messageId = parts[3];
                   const expiresAt = Number(parts[4]);
+                  if (!isStaffMember(interaction.member)) {
+                    return interaction.reply({
+                      content: "❌ Staff only.",
+                      ephemeral: true
+                    });
+                  }
 
                   if (Date.now() > expiresAt) {
                     return interaction.update({
@@ -4281,10 +4767,19 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     delete g.entryMap[user.id];
                   }
 
-                  giveaways.set(messageId, g);
-                  saveData();
+                    giveaways.set(messageId, g);
+                    saveData();
 
-                  return interaction.reply({
+                    await sendGiveawayAuditLog(
+                      interaction.guild,
+                      "removed",
+                      messageId,
+                      g,
+                      interaction.user,
+                      { summary: `Removed <@${user.id}> from the giveaway.` }
+                    );
+
+                    return interaction.reply({
                     content: `✅ Removed <@${user.id}> from giveaway \`${messageId}\`.`,
                     ephemeral: true
                   });
@@ -4750,6 +5245,9 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       interaction.options.getUser(
                         "host"
                       ) || interaction.user;
+                     
+                     const sponsor =
+                       interaction.options.getUser("sponsor");
 
                     const requiredDaily =
                       interaction.options.getInteger(
@@ -4804,13 +5302,13 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       "";
 
                     extraEntriesText +=
-                      `<@&1500366242052313120> • +3 entries\n`;
+                      `<@&1358683520578617444> • +3 entries\n`;
 
                     extraEntriesText +=
-                      `<@&1500366242110767134> • +3 entries\n`;
+                      `<@&1384106733374410843> • +3 entries\n`;
 
                     extraEntriesText +=
-                      `<@&1500366242085732500> • +2 entries`;
+                      `<@&1358681930480226496> • +2 entries`;
 
                     const row =
                       new ActionRowBuilder()
@@ -4861,6 +5359,14 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                           value: `<@${host.id}>`,
                           inline: false
                         },
+                        
+                        ...(sponsor
+                          ? [{
+                              name: "🎖️ Sponsored By",
+                              value: `<@${sponsor.id}>`,
+                              inline: false
+                            }]
+                          : []),
 
                         {
                           name: "🎟️ Entries",
@@ -4905,6 +5411,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       winnerCount: winners,
 
                       claimTime,
+                        
 
                       prize,
 
@@ -4928,9 +5435,9 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       claimedUsers: [],
                       failed: [],
 
-                      host: host.id,
-
-                      messageUrl: msg.url
+                        host: host.id,
+                        sponsor: sponsor ? sponsor.id : null,
+                        messageUrl: msg.url
                     });
 
                     saveData();
@@ -4940,6 +5447,14 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       duration
                     );
 
+                     await sendGiveawayAuditLog(
+                       interaction.guild,
+                       "created",
+                       msg.id,
+                       giveaways.get(msg.id),
+                       interaction.user,
+                       { summary: `Slash giveaway created with **${winners}** winner(s).` }
+                     );
                      return interaction.editReply({
                        content: "✅ Premium giveaway created"
                      });
@@ -5416,6 +5931,14 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   // ❌ CANCEL
                   if (interaction.customId === "g_cancel") {
 
+                    await sendGiveawayAuditLog(
+                      interaction.guild,
+                      "created",
+                      msg.id,
+                      giveaways.get(msg.id),
+                      interaction.user,
+                      { summary: "Giveaway created from premium draft panel." }
+                    );
                     giveawayDrafts.delete(
                       interaction.user.id
                     );
@@ -5580,8 +6103,8 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                             value:
                             `• Required Role: ${roleText}\n` +
                             `• Booster: +3 entries\n` +
-                            `• <@&1500366242110767134>: +3 entries\n` +
-                            `• <@&1500366242085732500>: +2 entries`,
+                            `• <@&1358683520578617444>: +3 entries\n` +
+                            `• <@&1358681930480226496>: +2 entries`,
                             inline: false
                           }
                         )
@@ -5604,6 +6127,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       winnerCount: draft.winners,
 
                       claimTime: 30000,
+                      endAt: Date.now() + duration,
 
                       prize: draft.prize,
                       requiredRole: draft.requiredRole,
@@ -5631,6 +6155,14 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       endGiveaway(msg.id);
                     }, duration);
 
+                    await sendGiveawayAuditLog(
+                      interaction.guild,
+                      "created",
+                      msg.id,
+                      giveaways.get(msg.id),
+                      interaction.user,
+                      { summary: "Giveaway created from premium draft panel." }
+                    );
                     giveawayDrafts.delete(
                       interaction.user.id
                     );
@@ -5912,7 +6444,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   // 🚀 BOOSTER
                   if (
                     interaction.member.roles.cache.has(
-                      "1500366242140258415"
+                      "1384106733374410843"
                     )
                   ) {
 
@@ -5922,7 +6454,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   // 💎 3B BOUNTY
                   if (
                     interaction.member.roles.cache.has(
-                      "1500366242110767134"
+                      "1358683520578617444"
                     )
                   ) {
 
@@ -5932,7 +6464,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   // 🛡️ 20M BOUNTY
                   if (
                     interaction.member.roles.cache.has(
-                      "1500366242085732500"
+                      "1358681930480226496"
                     )
                   ) {
 
@@ -6030,6 +6562,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 
                 // 🎫 CREATE TICKET
                 const hostId = g.host;
+                  const sponsorId = g.sponsor || null;
 
                 const prize = g.prize || "prize";
 
@@ -6053,6 +6586,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       id: hostId,
                       allow: ["ViewChannel", "SendMessages"]
                     },
+                    ...(sponsorId && sponsorId !== hostId
+                      ? [{
+                          id: sponsorId,
+                          allow: ["ViewChannel", "SendMessages"]
+                        }]
+                      : []),
                     {
                       id: ROLES.mod,
                       allow: ["ViewChannel", "SendMessages"]
@@ -6088,6 +6627,13 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                         value: `<@${hostId}>`,
                         inline: true
                       },
+                      ...(g.sponsor
+                        ? [{
+                            name: "🎖️ Sponsor",
+                            value: `<@${g.sponsor}>`,
+                            inline: true
+                          }]
+                        : []),
                       {
                         name: "🎁 Prize",
                         value: g.prize || "Prize",
@@ -6096,7 +6642,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       {
                         name: "💰 Host Instructions",
                         value:
-                          "Send the payment, upload proof, then staff can mark the ticket status.",
+                          "Sponsor/host should send the payment, upload proof, then staff can mark the ticket status.",
                         inline: false
                       },
                       {
@@ -6154,7 +6700,14 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                         name: "Host",
                         value: `<@${hostId}>`,
                         inline: true
-                      }
+                      },
+                      ...(sponsorId
+                        ? [{
+                            name: "Sponsor",
+                            value: `<@${sponsorId}>`,
+                            inline: true
+                          }]
+                        : [])
                     )
                     .setFooter({ text: "Only you can see this message" })
                     .setTimestamp();
@@ -6436,6 +6989,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   const messageId = parts[3];
                   const field = parts[4];
                   const expiresAt = Number(parts[5]);
+                  if (!isStaffMember(interaction.member)) {
+                    return interaction.reply({
+                      content: "❌ Staff only.",
+                      ephemeral: true
+                    });
+                  }
 
                   if (Date.now() > expiresAt) {
                     return interaction.reply({
@@ -6619,7 +7178,14 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     embeds: [embed],
                     components: [row]
                   });
-
+                  await sendGiveawayAuditLog(
+                    interaction.guild,
+                    "edited",
+                    messageId,
+                    g,
+                    interaction.user,
+                    { summary: `Updated field: **${field}**\nNew value: \`${value}\`` }
+                  );
                   return interaction.reply({
                     content: `✅ Giveaway **${field}** updated successfully.`,
                     ephemeral: true
@@ -6841,6 +7407,12 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
             async function endGiveaway(id) {
               const g = giveaways.get(id);
               if (!g || g.ended) return;
+              if (g.paused) return;
+
+              if (g.endAt && Date.now() < g.endAt) {
+                setTimeout(() => endGiveaway(id), g.endAt - Date.now());
+                return;
+              }
               const giveawayChannel = await getGiveawayChannel(g);
               if (!giveawayChannel) return;
 
@@ -6899,8 +7471,23 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
               saveData();
 
               g.lastWinner = winners[0];
-              g.allWinners = winners;
+              g.allWinners = [...winners];
+              g.finalWinners = [...winners];
               g.claimedUsers = [];
+              g.failed = g.failed || [];
+
+              saveData();
+
+              await updateEndedGiveawayMessage(g, id);
+
+              await sendGiveawayAuditLog(
+                giveawayChannel.guild,
+                "ended",
+                id,
+                g,
+                null,
+                { summary: `Final winners: ${winners.map(w => `<@${w}>`).join(", ")}` }
+              );
 
               // 📩 DM ALL WINNERS
               for (const winner of winners) {
@@ -7032,8 +7619,17 @@ async function startClaim(g, userId, giveawayId) {
                   }
 
                   // ❌ ADD FAILED USER
-                  g.failed.push(userId);
-                  g.claimedUsers.push(userId);
+                  if (!g.failed.includes(userId)) {
+                    g.failed.push(userId);
+                  }
+
+                  if (!g.claimedUsers.includes(userId)) {
+                    g.claimedUsers.push(userId);
+                  }
+
+                  if (Array.isArray(g.finalWinners)) {
+                    g.finalWinners = g.finalWinners.filter(id => id !== userId);
+                  }
 
                   saveData();
 
@@ -7052,10 +7648,20 @@ async function startClaim(g, userId, giveawayId) {
     const giveawayChannel = await getGiveawayChannel(g);
     if (!giveawayChannel) return;
 
-              const available = g.users.filter(u =>
-                !g.failed.includes(u) &&
-                !g.claimedUsers.includes(u)
-              );
+    g.failed = g.failed || [];
+    g.claimedUsers = g.claimedUsers || [];
+    g.allWinners = g.allWinners || [];
+    g.finalWinners = g.finalWinners || [];
+
+    const blockedUsers = new Set([
+      ...g.failed,
+      ...g.claimedUsers,
+      ...g.allWinners
+    ]);
+
+    const available = [...new Set(g.users)].filter(u =>
+      !blockedUsers.has(u)
+    );
 
               if (available.length === 0) {
                 return giveawayChannel.send("⚠️ No eligible participants left.");
@@ -7063,14 +7669,30 @@ async function startClaim(g, userId, giveawayId) {
 
               const winner = available[Math.floor(Math.random() * available.length)];
 
-              g.lastWinner = winner;
+    g.lastWinner = winner;
 
-              if (!g.allWinners.includes(winner)) {
-                g.allWinners.push(winner);
-              }
+    if (!g.allWinners.includes(winner)) {
+      g.allWinners.push(winner);
+    }
 
-              saveData();
-              // 📩 DM REROLL WINNER
+    if (!g.finalWinners.includes(winner)) {
+      g.finalWinners.push(winner);
+    }
+
+    saveData();
+
+    await updateEndedGiveawayMessage(g, giveawayId);
+
+    await sendGiveawayAuditLog(
+      giveawayChannel.guild,
+      "rerolled",
+      giveawayId,
+      g,
+      null,
+      { summary: `New reroll winner: <@${winner}>` }
+    );
+
+    // 📩 DM REROLL WINNER
               client.users.fetch(winner).then(user => {
 
                 const dmEmbed = new EmbedBuilder()
@@ -7311,7 +7933,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
               saveData();
             }
 
-              client.login(process.env.TOKEN);
+client.login(TOKEN);
 
 
 

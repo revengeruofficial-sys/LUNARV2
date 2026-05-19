@@ -24,7 +24,13 @@ const commands = [
         .setName("prize")
         .setDescription("Giveaway prize")
         .setRequired(true)
-    ),
+    )
+  .addUserOption(option =>
+    option
+      .setName("sponsor")
+      .setDescription("Giveaway sponsor")
+      .setRequired(false)
+  ),
   new SlashCommandBuilder()
   .setName("giveaway")
   .setDescription("Advanced giveaway system")
@@ -95,6 +101,13 @@ const commands = [
           )
           .setRequired(false)
       )
+    // 🎖️ SPONSOR
+    .addUserOption(option =>
+      option
+        .setName("sponsor")
+        .setDescription("Giveaway sponsor")
+        .setRequired(false)
+    )
 
       // 🌅 DAILY
       .addIntegerOption(option =>
@@ -284,6 +297,15 @@ const commands = [
       .setName("weeklyreport")
       .setDescription("View weekly staff activity report")
   ),
+  new SlashCommandBuilder()
+    .setName("cases")
+    .setDescription("View moderation cases")
+    .addUserOption(option =>
+      option
+        .setName("user")
+        .setDescription("Filter cases for a specific user")
+        .setRequired(false)
+    ),
 
   new SlashCommandBuilder()
     .setName("health")
