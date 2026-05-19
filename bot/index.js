@@ -2064,7 +2064,7 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
                   .split(/\s+/)[0]
                   .toLowerCase();
 
-                const publicPrefixCommands = ["help"];
+                const publicPrefixCommands = ["help", "messages", "messagelb"];
 
                 if (!publicPrefixCommands.includes(commandName)) {
                   const level = getUserLevel(message.member);
@@ -2097,7 +2097,7 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
                 const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
                 const cmd = args.shift().toLowerCase();
 
-                if (level === 0 && cmd !== "help") {
+                if (level === 0 && !["help", "messages", "messagelb"].includes(cmd)) {
                   return;
                 }
 
@@ -2124,56 +2124,90 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
 
                 // 🏆 MESSAGE LEADERBOARD
                 if (cmd === "messagelb") {
+                  const sorted = [...messageStats.entries()]
+                    .map(([userId, stats]) => {
+                      const total =
+                        stats.total ||
+                        (stats.daily || 0) +
+                        (stats.weekly || 0) +
+                        (stats.monthly || 0);
 
-                  const sorted =
-                    [...messageStats.entries()]
-                      .sort(
-                        (a, b) =>
-                        b[1].total -
-                        a[1].total
-                      )
-                      .slice(0, 10);
+                      return [userId, { ...stats, total }];
+                    })
+                    .filter(([, stats]) => stats.total > 0)
+                    .sort((a, b) => b[1].total - a[1].total);
 
                   if (sorted.length === 0) {
-
-                    return message.reply(
-                      "❌ No message data found"
-                    );
+                    return message.reply("❌ No message data found");
                   }
 
-                  let text = "";
+                  const pageSize = 10;
+                  let page = 0;
+                  const maxPage = Math.ceil(sorted.length / pageSize) - 1;
 
-                  sorted.forEach(
-                    (entry, index) => {
+                  const buildMessageLbEmbed = () => {
+                    const pageData = sorted.slice(page * pageSize, page * pageSize + pageSize);
 
-                      const userId = entry[0];
-                      const stats = entry[1];
-                      if (!stats.total) {
+                    const text = pageData.map(([userId, stats], index) => {
+                      const rank = page * pageSize + index + 1;
+                      return `🏆 **#${rank}** • <@${userId}>\n💬 Total Messages: **${stats.total}**`;
+                    }).join("\n\n");
 
-                        stats.total =
-                          (stats.daily || 0) +
-                          (stats.weekly || 0) +
-                          (stats.monthly || 0);
-                      }
-
-                      text +=
-                        `🏆 **#${index + 1}** • <@${userId}>\n` +
-                        `💬 Total Messages: ${stats.total}\n\n`;
-                    }
-                  );
-
-                  const embed =
-                    new EmbedBuilder()
-                      .setTitle(
-                        "🏆 Message Leaderboard"
-                      )
+                    return new EmbedBuilder()
+                      .setTitle("🏆 Message Leaderboard")
                       .setColor(0xffd700)
                       .setDescription(text)
+                      .setFooter({ text: `Page ${page + 1}/${maxPage + 1}` })
                       .setTimestamp();
+                  };
 
-                  return message.channel.send({
-                    embeds: [embed]
+                  const buildMessageLbRow = () =>
+                    new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId("msg_lb_prev")
+                        .setLabel("Previous")
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(page === 0),
+                      new ButtonBuilder()
+                        .setCustomId("msg_lb_next")
+                        .setLabel("Next")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(page === maxPage)
+                    );
+
+                  const lbMessage = await message.channel.send({
+                    embeds: [buildMessageLbEmbed()],
+                    components: [buildMessageLbRow()]
                   });
+
+                  const collector = lbMessage.createMessageComponentCollector({
+                    time: 5 * 60 * 1000
+                  });
+
+                  collector.on("collect", async interaction => {
+                    if (interaction.user.id !== message.author.id) {
+                      return interaction.reply({
+                        content: "❌ This leaderboard menu is not for you.",
+                        ephemeral: true
+                      });
+                    }
+
+                    if (interaction.customId === "msg_lb_prev" && page > 0) page--;
+                    if (interaction.customId === "msg_lb_next" && page < maxPage) page++;
+
+                    await interaction.update({
+                      embeds: [buildMessageLbEmbed()],
+                      components: [buildMessageLbRow()]
+                    });
+                  });
+
+                  collector.on("end", async () => {
+                    await lbMessage.edit({
+                      components: []
+                    }).catch(() => {});
+                  });
+
+                  return;
                 }
 
                 // 📊 MESSAGE STATS
@@ -4977,7 +5011,9 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
                           inline: true
                         },
                         {
-                          name: "✅ Modlogs",
+                          name: isBossProfile
+                            ? "✅ Modlogs Approved For Staffs"
+                            : "✅ Approved Modlogs",
                           value: `${data.modlogs}`,
                           inline: true
                         },
@@ -5636,9 +5672,19 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
                     });
                   }
 
-                  data.status = "Approved";
+                    data.status = "Approved";
                     addPoints(data.moderator, "modlog");
-                  data.reviewedBy = interaction.user.id;
+
+                    const approverIsBoss =
+                      member.roles.cache.has(ROLES.ultimate) ||
+                      member.roles.cache.has(ROLES.owner) ||
+                      member.roles.cache.has(ROLES.admin);
+
+                    if (approverIsBoss && interaction.user.id !== data.moderator) {
+                      addPoints(interaction.user.id, "modlog");
+                    }
+
+                    data.reviewedBy = interaction.user.id;
 
                   punishmentLogs.set(logId, data);
 
