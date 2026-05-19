@@ -967,11 +967,6 @@ function buildEndedGiveawayEmbed(g, winners) {
     .setColor(0xff4d6d)
     .addFields(
       {
-        name: "Prize",
-        value: g.prize || "Prize",
-        inline: false
-      },
-      {
         name: `Winner${winners.length > 1 ? "s" : ""}`,
         value: winners.map(id => `<@${id}>`).join("\n"),
         inline: false
@@ -1056,13 +1051,37 @@ async function updateEndedGiveawayMessage(g, giveawayId) {
               }, 2 * 24 * 60 * 60 * 1000); // 2 days
             }
 
-            // READY
-client.on("ready", () => {
-  console.log(`Logged in as ${client.user.tag}`);
+            let giveawaysRescheduled = false;
 
-  expireOldStrikes();
-  setInterval(expireOldStrikes, 60 * 60 * 1000);
-});
+            function rescheduleActiveGiveaways() {
+              if (giveawaysRescheduled) return;
+              giveawaysRescheduled = true;
+
+              for (const [messageId, g] of giveaways.entries()) {
+                if (!g || g.ended) continue;
+                if (g.paused) continue;
+                if (!g.endAt) continue;
+
+                const remaining = g.endAt - Date.now();
+
+                if (remaining <= 0) {
+                  endGiveaway(messageId);
+                } else {
+                  setTimeout(() => endGiveaway(messageId), remaining);
+                }
+              }
+
+              console.log(`Rescheduled ${giveaways.size} saved giveaways`);
+            }
+  // READY
+  client.on("ready", () => {
+    console.log(`Logged in as ${client.user.tag}`);
+
+    expireOldStrikes();
+    setInterval(expireOldStrikes, 60 * 60 * 1000);
+
+    rescheduleActiveGiveaways();
+  });
 
               // 🔄 AUTO RESET MESSAGE STATS
               setInterval(() => {
@@ -3803,7 +3822,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                     embeds: [embed]
                   });
                 }
-                endGiveaway(messageId);
+                await endGiveaway(messageId, true);
 
                 const embed = new EmbedBuilder()
                   .setTitle("⏹️ Giveaway Ended")
@@ -7391,15 +7410,15 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                 await client.channels.fetch(channelId).catch(() => null);
             }
             // END GIVEAWAY
-            async function endGiveaway(id) {
+  async function endGiveaway(id, forceEnd = false) {
               const g = giveaways.get(id);
               if (!g || g.ended) return;
               if (g.paused) return;
 
-              if (g.endAt && Date.now() < g.endAt) {
-                setTimeout(() => endGiveaway(id), g.endAt - Date.now());
-                return;
-              }
+    if (!forceEnd && g.endAt && Date.now() < g.endAt) {
+      setTimeout(() => endGiveaway(id), g.endAt - Date.now());
+      return;
+    }
               const giveawayChannel = await getGiveawayChannel(g);
               if (!giveawayChannel) return;
 
