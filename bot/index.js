@@ -955,8 +955,9 @@ function formatDuration(ms) {
         });
       }
 
-      return new EmbedBuilder()
+        return new EmbedBuilder()
         .setTitle("🎉 Giveaway Started")
+        .setDescription(`## 🎁 ${g.prize || "Prize"}`)
         .setColor(0xff4d6d)
         .addFields(fields)
         .setFooter({
@@ -965,8 +966,9 @@ function formatDuration(ms) {
         .setTimestamp();
     }
 function buildEndedGiveawayEmbed(g, winners) {
-  return new EmbedBuilder()
+    return new EmbedBuilder()
     .setTitle("GIVEAWAY ENDED")
+    .setDescription(`## 🎁 ${g.prize || "Prize"}`)
     .setColor(0xff4d6d)
     .addFields(
       {
@@ -1999,7 +2001,11 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                 return;
               }
               const protectedUserPings = message.mentions.users.filter(user =>
-                PROTECTED_PING_USERS.includes(user.id)
+                PROTECTED_PING_USERS.includes(user.id) &&
+                (
+                  message.content.includes(`<@${user.id}>`) ||
+                  message.content.includes(`<@!${user.id}>`)
+                )
               );
 
               if (protectedUserPings.size > 0 && !canPingProtected(message.member)) {
@@ -2448,8 +2454,9 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   new ButtonBuilder().setCustomId("enter").setLabel("🎉 Enter").setStyle(ButtonStyle.Primary)
                 );
 
-                const embed = new EmbedBuilder()
+                  const embed = new EmbedBuilder()
                   .setTitle("🎉 Giveaway Started")
+                  .setDescription(`## 🎁 ${prize}`)
                   .setColor(0xff4d6d)
                   .addFields(
                     {
@@ -4263,8 +4270,9 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                       .setStyle(ButtonStyle.Primary)
                   );
 
-                  const embed = new EmbedBuilder()
+                    const embed = new EmbedBuilder()
                     .setTitle("🎉 Giveaway Started")
+                    .setDescription(`## 🎁 ${prize}`)
                     .setColor(0xff4d6d)
                     .addFields(
                       {
@@ -5327,12 +5335,13 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                             .setStyle(ButtonStyle.Secondary)
                         );
 
-                    const embed =
-                      new EmbedBuilder()
-                        .setTitle(
-                          "🎉 Giveaway Started"
-                        )
-                        .setColor(0xff4d6d)
+                      const embed =
+                        new EmbedBuilder()
+                          .setTitle(
+                            "🎉 Giveaway Started"
+                          )
+                          .setDescription(`## 🎁 ${prize}`)
+                          .setColor(0xff4d6d)
 
                       .addFields(
 
@@ -7536,8 +7545,9 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
                   .setStyle(ButtonStyle.Success)
               );
 
-              const embed = new EmbedBuilder()
+                const embed = new EmbedBuilder()
                 .setTitle("🎉 Giveaway Ended")
+                .setDescription(`## 🎁 ${g.prize || "Prize"}`)
                 .setColor(0x00c853)
                 .addFields(
                   {
@@ -7727,8 +7737,9 @@ async function startClaim(g, userId, giveawayId) {
 
               }).catch(() => {});
 
-              const embed = new EmbedBuilder()
+                const embed = new EmbedBuilder()
                 .setTitle("🔁 Giveaway Rerolled")
+                .setDescription(`## 🎁 ${g.prize || "Prize"}`)
                 .setColor(0xff9800)
                 .addFields(
                   {
