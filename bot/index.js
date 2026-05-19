@@ -1074,15 +1074,25 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
 
                 console.log(`Rescheduled ${giveaways.size} saved giveaways`);
               }
-    // READY
-    client.on("ready", () => {
-      console.log(`Logged in as ${client.user.tag}`);
+// READY
+client.on("ready", () => {
+  console.log(`Logged in as ${client.user.tag}`);
 
-      expireOldStrikes();
-      setInterval(expireOldStrikes, 60 * 60 * 1000);
+  client.user.setPresence({
+    activities: [
+      {
+        name: "Lunar V2 by Hiro",
+        type: 3
+      }
+    ],
+    status: "online"
+  });
 
-      rescheduleActiveGiveaways();
-    });
+  expireOldStrikes();
+  setInterval(expireOldStrikes, 60 * 60 * 1000);
+
+  rescheduleActiveGiveaways();
+});
 
                 // 🔄 AUTO RESET MESSAGE STATS
                 setInterval(() => {
