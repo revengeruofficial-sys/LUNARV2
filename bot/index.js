@@ -64,6 +64,7 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
                 strikeLogs: "1381173430472282163",
                 modLogs: "1506172574189617202",
                 motmAnnouncements: "1422082737241587752",
+                weeklyReports: "1393821587559420004",
               };
 
             const TRUSTED_BOTS = [
@@ -117,6 +118,7 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
               const messageStats = new Map();
 
               let caseCounter = 1000;
+let lastWeeklyReportKey = null;
 
 
               // 💾 SAVE DATA
@@ -132,7 +134,8 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
                   giveaways: Object.fromEntries(giveaways),
                   fixedWinners: Object.fromEntries(fixedWinners),
                   messageStats: Object.fromEntries(messageStats),
-                  caseCounter
+                  caseCounter,
+                  lastWeeklyReportKey
                 };
 
                 fs.writeFileSync(
@@ -223,20 +226,22 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
                   }
                 }
 
-                            // message stats
-              if (data.messageStats) {
+// message stats
+if (data.messageStats) {
+  messageStats.clear();
 
-                messageStats.clear();
+  for (const key in data.messageStats) {
+    messageStats.set(
+      key,
+      data.messageStats[key]
+    );
+  }
+}
 
-                for (const key in data.messageStats) {
-
-                  messageStats.set(
-                    key,
-                    data.messageStats[key]
-                  );
-                }
-                  }
-                }
+if (data.lastWeeklyReportKey) {
+  lastWeeklyReportKey = data.lastWeeklyReportKey;
+}
+}
 
                 loadData();
     function expireOldStrikes() {
@@ -1074,6 +1079,148 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
 
                 console.log(`Rescheduled ${giveaways.size} saved giveaways`);
               }
+async function buildWeeklyStaffReportEmbed(guild) {
+  await guild.members.fetch();
+
+  const staffMembers = guild.members.cache.filter(member =>
+    member.roles.cache.has(ROLES.trial) ||
+    member.roles.cache.has(ROLES.mod) ||
+    member.roles.cache.has(ROLES.headmod)
+  );
+
+  const trackedStaff = [...staffMembers.values()].map(member => {
+    const data = staffPoints.get(member.id) || {
+      total: 0,
+      monthly: 0,
+      modlogs: 0,
+      tickets: 0,
+      giveaways: 0,
+      strikes: 0
+    };
+
+    return { member, data };
+  });
+
+  const topMonthly = trackedStaff
+    .filter(entry => (entry.data.monthly || 0) > 0)
+    .sort((a, b) => (b.data.monthly || 0) - (a.data.monthly || 0))
+    .slice(0, 5)
+    .map((entry, index) =>
+      `**#${index + 1}** <@${entry.member.id}> - ${entry.data.monthly || 0} pts`
+    )
+    .join("\n") || "No monthly activity yet.";
+
+  const topModlogs = trackedStaff
+    .filter(entry => (entry.data.modlogs || 0) > 0)
+    .sort((a, b) => (b.data.modlogs || 0) - (a.data.modlogs || 0))
+    .slice(0, 5)
+    .map((entry, index) =>
+      `**#${index + 1}** <@${entry.member.id}> - ${entry.data.modlogs || 0} modlogs`
+    )
+    .join("\n") || "No modlogs yet.";
+
+  const topTickets = trackedStaff
+    .filter(entry => (entry.data.tickets || 0) > 0)
+    .sort((a, b) => (b.data.tickets || 0) - (a.data.tickets || 0))
+    .slice(0, 5)
+    .map((entry, index) =>
+      `**#${index + 1}** <@${entry.member.id}> - ${entry.data.tickets || 0} tickets`
+    )
+    .join("\n") || "No tickets closed yet.";
+
+  const topGiveaways = trackedStaff
+    .filter(entry => (entry.data.giveaways || 0) > 0)
+    .sort((a, b) => (b.data.giveaways || 0) - (a.data.giveaways || 0))
+    .slice(0, 5)
+    .map((entry, index) =>
+      `**#${index + 1}** <@${entry.member.id}> - ${entry.data.giveaways || 0} giveaways`
+    )
+    .join("\n") || "No giveaways hosted yet.";
+
+  const inactiveStaff = trackedStaff
+    .filter(entry => (entry.data.monthly || 0) === 0)
+    .slice(0, 15)
+    .map(entry => `<@${entry.member.id}>`)
+    .join(", ") || "No inactive staff.";
+
+  const totalMonthly = trackedStaff.reduce(
+    (sum, entry) => sum + (entry.data.monthly || 0),
+    0
+  );
+
+  return new EmbedBuilder()
+    .setTitle("📊 Weekly Staff Activity Report")
+    .setColor(0x5865f2)
+    .setDescription(
+      `Tracked Staff: **${trackedStaff.length}**\n` +
+      `Total Monthly Points: **${totalMonthly}**`
+    )
+    .addFields(
+      {
+        name: "🏆 Top Monthly Points",
+        value: topMonthly,
+        inline: false
+      },
+      {
+        name: "✅ Top Modlogs",
+        value: topModlogs,
+        inline: false
+      },
+      {
+        name: "🎫 Top Tickets",
+        value: topTickets,
+        inline: false
+      },
+      {
+        name: "🎉 Top Giveaways",
+        value: topGiveaways,
+        inline: false
+      },
+      {
+        name: "💤 Inactive Staff",
+        value: inactiveStaff,
+        inline: false
+      }
+    )
+    .setFooter({
+      text: "Auto weekly report • Inactive = 0 monthly points"
+    })
+    .setTimestamp();
+}
+
+async function checkWeeklyStaffReport() {
+  const now = new Date(
+    new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata"
+    })
+  );
+
+  // Saturday 5 PM IST
+  if (now.getDay() !== 6 || now.getHours() !== 17) return;
+
+  const reportKey =
+    `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+
+  if (lastWeeklyReportKey === reportKey) return;
+
+  const guild = client.guilds.cache.first();
+  if (!guild) return;
+
+  const channel =
+    guild.channels.cache.get(CHANNELS.weeklyReports) ||
+    await guild.channels.fetch(CHANNELS.weeklyReports).catch(() => null);
+
+  if (!channel) return;
+
+  const embed = await buildWeeklyStaffReportEmbed(guild);
+
+  await channel.send({
+    embeds: [embed]
+  });
+
+  lastWeeklyReportKey = reportKey;
+  saveData();
+}
 // READY
 client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -1092,6 +1239,8 @@ client.on("ready", () => {
   setInterval(expireOldStrikes, 60 * 60 * 1000);
 
   rescheduleActiveGiveaways();
+  checkWeeklyStaffReport();
+  setInterval(checkWeeklyStaffReport, 60 * 1000);
 });
 
                 // 🔄 AUTO RESET MESSAGE STATS
@@ -3762,7 +3911,7 @@ client.on("ready", () => {
                         },
                         {
                           name: "⏰ Claim Time",
-                          value: `${g.claimTime / 1000}s`
+                          value: formatDuration(g.claimTime)
                         }
                       )
                       .setFooter({
@@ -4628,7 +4777,7 @@ client.on("ready", () => {
                         `Editing giveaway: \`${messageId}\`\n\n` +
                         `🎁 **Prize:** ${g.prize || "Prize"}\n` +
                         `👑 **Winners:** ${g.winnerCount || 1}\n` +
-                        `⏳ **Claim Time:** ${(g.claimTime || 30000) / 1000}s\n` +
+                        `⏳ **Claim Time:** ${formatDuration(g.claimTime || 30000)}\n` +
                         `🌅 **Daily:** ${g.requiredDaily || 0}\n` +
                         `📅 **Weekly:** ${g.requiredWeekly || 0}\n` +
                         `🗓️ **Monthly:** ${g.requiredMonthly || 0}\n` +
@@ -4769,11 +4918,13 @@ client.on("ready", () => {
 
                     if (field === "duration") {
                       input.setPlaceholder("Example: 10m, 1h, 30s");
+                    } else if (field === "claimtime") {
+                      input.setPlaceholder("Example: 30s, 2m, 1h");
                     } else if (field === "requiredrole") {
                       input.setPlaceholder("Role ID or none");
                     } else if (field === "host") {
                       input.setPlaceholder("User ID");
-                    } else if (["winners", "claimtime", "daily", "weekly", "monthly"].includes(field)) {
+                    } else if (["winners", "daily", "weekly", "monthly"].includes(field)) {
                       input.setPlaceholder("Number only");
                     } else {
                       input.setPlaceholder("Enter new value");
@@ -5288,12 +5439,16 @@ client.on("ready", () => {
                           "winners"
                         );
 
-                      const claimTime =
-                        (
-                          interaction.options.getInteger(
-                            "claimtime"
-                          ) || 30
-                        ) * 1000;
+                       const claimInput =
+                         interaction.options.getString("claimtime") || "30s";
+
+                       const claimTime = parseTime(claimInput);
+
+                       if (!claimTime || isNaN(claimTime) || claimTime < 1000) {
+                         return interaction.editReply({
+                           content: "❌ Claim time must be like `30s`, `2m`, or `1h`."
+                         });
+                       }
 
                       const channel =
                         interaction.options.getChannel(
@@ -5491,14 +5646,15 @@ client.on("ready", () => {
                           host: host.id,
                           sponsor: sponsor ? sponsor.id : null,
                           messageUrl: msg.url
-                      });
+                       });
 
-                      saveData();
+                       addPoints(host.id, "giveaway");
+                       saveData();
 
-                      setTimeout(
-                        () => endGiveaway(msg.id),
-                        duration
-                      );
+                       setTimeout(
+                         () => endGiveaway(msg.id),
+                         duration
+                       );
 
                        await sendGiveawayAuditLog(
                          interaction.guild,
@@ -6212,6 +6368,7 @@ client.on("ready", () => {
                         messageUrl: msg.url
                       });
 
+                      addPoints(interaction.user.id, "giveaway");
                       saveData();
 
                       setTimeout(() => {
@@ -7117,15 +7274,16 @@ client.on("ready", () => {
                     }
 
                     if (field === "claimtime") {
-                      const claimSeconds = parseInt(value);
-                      if (isNaN(claimSeconds) || claimSeconds < 1) {
+                      const claimTime = parseTime(value);
+
+                      if (!claimTime || isNaN(claimTime) || claimTime < 1000) {
                         return interaction.reply({
-                          content: "❌ Claim time must be a number above 0.",
+                          content: "❌ Claim time must be like `30s`, `2m`, or `1h`.",
                           ephemeral: true
                         });
                       }
 
-                      g.claimTime = claimSeconds * 1000;
+                      g.claimTime = claimTime;
                     }
 
                     if (field === "daily") {
@@ -7571,7 +7729,7 @@ client.on("ready", () => {
                       },
                       {
                         name: "⏰ Claim Time",
-                        value: `${g.claimTime / 1000}s`
+                        value: formatDuration(g.claimTime)
                       }
                     )
                     .setFooter({
@@ -7614,7 +7772,7 @@ client.on("ready", () => {
                     },
                     {
                       name: "⏰ Claim Time",
-                      value: `${g.claimTime / 1000}s`,
+                      value: formatDuration(g.claimTime),
                       inline: true
                     },
                     {
@@ -7764,7 +7922,7 @@ client.on("ready", () => {
                       },
                       {
                         name: "⏰ Claim Time",
-                        value: `${g.claimTime / 1000}s`
+                        value: formatDuration(g.claimTime),
                       }
                     )
                     .setFooter({
@@ -7798,7 +7956,7 @@ client.on("ready", () => {
                     },
                     {
                       name: "⏰ Claim Time",
-                      value: `${g.claimTime / 1000}s`,
+                      value: formatDuration(g.claimTime),
                       inline: true
                     }
                   )
