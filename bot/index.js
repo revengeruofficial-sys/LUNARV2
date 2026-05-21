@@ -7202,7 +7202,7 @@ client.on("ready", () => {
                           }
                         )
                         .setFooter({
-                          text: "Ticket will close automatically"
+                          text: "Ticket will stay open until staff closes it"
                         })
                         .setTimestamp();
 
@@ -7237,38 +7237,48 @@ client.on("ready", () => {
                         components: [disabledRow]
                       }).catch(() => {});
 
-                      setTimeout(async () => {
-                        const channel = interaction.channel;
-                        const attachment = await transcripts.createTranscript(channel).catch(() => null);
+                      const paidLogChannel =
+                        interaction.guild.channels.cache.get(CHANNELS.botLogs) ||
+                        interaction.guild.channels.cache.get(CHANNELS.giveawayLogs);
 
-                        const logChannel = interaction.guild.channels.cache.get(CHANNELS.botLogs);
+                      const paidAttachment = await transcripts
+                        .createTranscript(interaction.channel)
+                        .catch(() => null);
 
-                        if (logChannel) {
-                          const closeEmbed = new EmbedBuilder()
-                            .setTitle("✅ Claim Ticket Paid & Closed")
-                            .setColor(0x57f287)
-                            .addFields(
-                              {
-                                name: "🎫 Ticket",
-                                value: channel.name,
-                                inline: true
-                              },
-                              {
-                                name: "🛡️ Closed By",
-                                value: `<@${interaction.user.id}>`,
-                                inline: true
-                              }
-                            )
-                            .setTimestamp();
+                      if (paidLogChannel) {
+                        const paidLogEmbed = new EmbedBuilder()
+                          .setTitle("✅ Claim Ticket Marked Paid")
+                          .setColor(0x57f287)
+                          .addFields(
+                            {
+                              name: "🎫 Ticket",
+                              value: interaction.channel.name,
+                              inline: true
+                            },
+                            {
+                              name: "🛡️ Verified By",
+                              value: `<@${interaction.user.id}>`,
+                              inline: true
+                            },
+                            {
+                              name: "📌 Status",
+                              value: "Payment verified. Ticket is still open.",
+                              inline: false
+                            }
+                          )
+                          .setTimestamp();
 
-                          logChannel.send({
-                            embeds: [closeEmbed],
-                            files: attachment ? [attachment] : []
-                          });
-                        }
+                        await paidLogChannel.send({
+                          embeds: [paidLogEmbed],
+                          files: paidAttachment ? [paidAttachment] : []
+                        }).catch(() => {});
+                      }
 
-                        await channel.delete().catch(() => {});
-                      }, 5000);
+                      await interaction.channel.send({
+                        content:
+                          "✅ Payment marked as paid.\n" +
+                          "Use `.close` when you want to lock this ticket and show the delete button."
+                      }).catch(() => {});
                     }
                   }
                   // 🔔 REMIND BOTH BUTTON
