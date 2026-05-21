@@ -4326,6 +4326,7 @@ client.on("ready", () => {
 
                     const isPublicCommand =
                       commandName === "help" ||
+                      commandName === "profile" ||
                       isPublicStaffProfile ||
                       isPublicStaffRate;
 
@@ -4447,7 +4448,126 @@ client.on("ready", () => {
                       ephemeral: true
                     });
                   }
-                  // 🔥 SLASH GSTART
+                  // 👤 MEMBER PROFILE
+                    if (
+                      interaction.isChatInputCommand() &&
+                      interaction.commandName === "profile"
+                    ) {
+                      await interaction.deferReply();
+
+                      const user = interaction.options.getUser("user") || interaction.user;
+
+                    const member =
+                      await interaction.guild.members.fetch(user.id).catch(() => null);
+
+                  if (!member) {
+                    return interaction.editReply({
+                      content: "❌ Member not found in this server."
+                    });
+                  }
+
+                    const stats = messageStats.get(user.id) || {
+                      daily: 0,
+                      weekly: 0,
+                      monthly: 0,
+                      total: 0
+                    };
+
+                    const totalMessages =
+                      stats.total ||
+                      (stats.daily || 0) +
+                      (stats.weekly || 0) +
+                      (stats.monthly || 0);
+
+                    const sortedMessages = [...messageStats.entries()]
+                      .map(([id, data]) => {
+                        const total =
+                          data.total ||
+                          (data.daily || 0) +
+                          (data.weekly || 0) +
+                          (data.monthly || 0);
+
+                        return [id, total];
+                      })
+                      .filter(([, total]) => total > 0)
+                      .sort((a, b) => b[1] - a[1]);
+
+                    const rankIndex = sortedMessages.findIndex(([id]) => id === user.id);
+                    const messageRank = rankIndex === -1 ? "Unranked" : `#${rankIndex + 1}`;
+
+                    const roles = member.roles.cache
+                      .filter(role => role.id !== interaction.guild.id)
+                      .sort((a, b) => b.position - a.position)
+                      .map(role => `<@&${role.id}>`)
+                      .slice(0, 10);
+
+                  let roleText =
+                    roles.length > 0
+                      ? roles.join(" ")
+                      : "No roles";
+
+                  if (roleText.length > 1000) {
+                    roleText = roleText.slice(0, 1000) + "...";
+                  }
+
+                    const joinedAt = member.joinedTimestamp
+                      ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>`
+                      : "Unknown";
+
+                    const createdAt = `<t:${Math.floor(user.createdTimestamp / 1000)}:D>`;
+
+                    const embed = new EmbedBuilder()
+                      .setTitle("👤 Member Profile")
+                      .setColor(0x5865f2)
+                      .setThumbnail(user.displayAvatarURL({ size: 256 }))
+                      .addFields(
+                        {
+                          name: "User",
+                          value: `<@${user.id}>`,
+                          inline: true
+                        },
+                        {
+                          name: "Joined Server",
+                          value: joinedAt,
+                          inline: true
+                        },
+                        {
+                          name: "Account Created",
+                          value: createdAt,
+                          inline: true
+                        },
+                        {
+                          name: "Message Rank",
+                          value: messageRank,
+                          inline: true
+                        },
+                        {
+                          name: "Total Messages",
+                          value: `${totalMessages}`,
+                          inline: true
+                        },
+                        {
+                          name: "Daily / Weekly / Monthly",
+                          value: `${stats.daily || 0} / ${stats.weekly || 0} / ${stats.monthly || 0}`,
+                          inline: true
+                        },
+                        {
+                          name: `Roles (${member.roles.cache.size - 1})`,
+                          value: roleText,
+                          inline: false
+                        }
+                      )
+                      .setFooter({
+                        text: `User ID: ${user.id}`
+                      })
+                      .setTimestamp();
+
+                  return interaction.editReply({
+                    embeds: [embed]
+                  });
+                  }
+                  
+                          // 🔥 SLASH GSTART
                   if (
                     interaction.isChatInputCommand() &&
                     interaction.commandName === "gstart"

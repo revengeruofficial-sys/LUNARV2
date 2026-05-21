@@ -82,15 +82,15 @@ const commands = [
           .setRequired(true)
       )
 
-      // ⏳ CLAIM TIME
-      .addIntegerOption(option =>
-        option
-          .setName("claimtime")
-          .setDescription(
-            "Claim time in seconds"
-          )
-          .setRequired(false)
-      )
+    // ⏳ CLAIM TIME
+    .addStringOption(option =>
+      option
+        .setName("claimtime")
+        .setDescription(
+          "Claim time: 30s, 2m, 1h"
+        )
+        .setRequired(false)
+    )
 
       // 👤 HOST
       .addUserOption(option =>
@@ -306,7 +306,15 @@ const commands = [
         .setDescription("Filter cases for a specific user")
         .setRequired(false)
     ),
-
+  new SlashCommandBuilder()
+    .setName("profile")
+    .setDescription("View your or another member's profile")
+    .addUserOption(option =>
+      option
+        .setName("user")
+        .setDescription("Member to view")
+        .setRequired(false)
+    ),
   new SlashCommandBuilder()
     .setName("health")
     .setDescription("Check bot health and configuration"),
