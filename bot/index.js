@@ -7022,10 +7022,18 @@ client.on("ready", () => {
                         .setEmoji("🔔")
                         .setStyle(ButtonStyle.Primary)
                     );
-
+                    const staffPing =
+                      `<@&${ROLES.trial}> <@&${ROLES.mod}> <@&${ROLES.headmod}>`;
                     await channel.send({
+                      content:
+                        `${staffPing}\n` +
+                        `🎫 New giveaway claim ticket opened by <@${interaction.user.id}>.`,
                       embeds: [claimPanelEmbed],
-                      components: [claimStatusRow]
+                      components: [claimStatusRow],
+                      allowedMentions: {
+                        roles: [ROLES.trial, ROLES.mod, ROLES.headmod],
+                        users: [interaction.user.id]
+                      }
                     });
                     const ticketUrl = `https://discord.com/channels/${guild.id}/${channel.id}`;
 
@@ -7294,18 +7302,18 @@ client.on("ready", () => {
                       .setTitle("🔔 Action Required!")
                       .setColor(0xff9800)
                       .setDescription(
-                        `Winner aur Sponsor/Host dono ko abhi is ticket mein present hona hai.\n\n` +
-                        `Jaldi action lo taaki ticket close ho sake!`
+                        `Both Sponsor and Winner are directed to perform claim and paying task.\n\n` +
+                        `Both of you be quick so that ticket can be closed.`
                       )
                       .addFields(
                         {
                           name: "🏆 Winner",
-                          value: `<@${winnerId}> — Prize lene ke liye ready raho.`,
+                          value: `<@${winnerId}> — claim your prize quick.`,
                           inline: false
                         },
                         {
                           name: "💰 Sponsor / Host",
-                          value: `<@${sponsorId}> — Payment karo aur proof yahan upload karo.`,
+                          value: `<@${sponsorId}> — Pay quick and post the proof here.`,
                           inline: false
                         },
                         {
@@ -7314,7 +7322,7 @@ client.on("ready", () => {
                           inline: false
                         }
                       )
-                      .setFooter({ text: "Lunar Claim System • Jaldi karo!" })
+                      .setFooter({ text: "Lunar Claim System • Pay & Claim Fast!" })
                       .setTimestamp();
 
                     const mentionContent =
@@ -7332,55 +7340,145 @@ client.on("ready", () => {
                     interaction.isButton() &&
                     interaction.customId === "close_confirm"
                   ) {
+                    const member = interaction.member;
 
-                  const member = interaction.member;
+                    const isStaff =
+                      member.roles.cache.has(ROLES.owner) ||
+                      member.roles.cache.has(ROLES.admin) ||
+                      member.roles.cache.has(ROLES.headmod) ||
+                      member.roles.cache.has(ROLES.mod) ||
+                      member.roles.cache.has(ROLES.trial) ||
+                      isBypass(member);
 
-                  const isStaff =
-                    member.roles.cache.has(ROLES.owner) ||
-                    member.roles.cache.has(ROLES.admin) ||
-                    member.roles.cache.has(ROLES.headmod) ||
-                    member.roles.cache.has(ROLES.mod) ||
-                    member.roles.cache.has(ROLES.trial);
-
-                  if (!isStaff && !isBypass(member)) {
-                    return interaction.reply({ content: "❌ Not allowed", ephemeral: true });
-                  }
-
-                  await interaction.deferUpdate(); // ⭐ fixes error
-
-                    addPoints(interaction.user.id, "ticket");
-                    interaction.channel.send("🔒 Closing ticket in 3 seconds...");
-
-                  const logChannel = interaction.guild.channels.cache.get(CHANNELS.botLogs);
-                  if (logChannel) {
-                    logChannel.send(
-                `📕 Ticket Closed
-
-                Channel: ${interaction.channel}
-                Closed by: <@${interaction.user.id}>`
-                    );
-                  }
-
-                  setTimeout(async () => {
-
-                    const channel = interaction.channel;
-                    const attachment = await transcripts.createTranscript(channel);
-
-                    const logChannel = interaction.guild.channels.cache.get(CHANNELS.botLogs);
-
-                    if (logChannel) {
-                      logChannel.send({
-                        content: `📄 Ticket Closed: ${channel.name}`,
-                        files: [attachment]
+                    if (!isStaff) {
+                      return interaction.reply({
+                        content: "❌ Not allowed",
+                        ephemeral: true
                       });
                     }
 
-                    await channel.delete().catch(() => {});
+                    if (interaction.channel.parentId !== CHANNELS.ticketCategory) {
+                      return interaction.reply({
+                        content: "❌ This is not a ticket.",
+                        ephemeral: true
+                      });
+                    }
 
-                  }, 3000);
-                }
+                    await interaction.deferUpdate();
 
+                    const staffRoles = [
+                      ROLES.owner,
+                      ROLES.admin,
+                      ROLES.headmod,
+                      ROLES.mod,
+                      ROLES.trial
+                    ];
 
+                    for (const overwrite of interaction.channel.permissionOverwrites.cache.values()) {
+                      if (overwrite.id === interaction.guild.roles.everyone.id) continue;
+                      if (staffRoles.includes(overwrite.id)) continue;
+
+                      await interaction.channel.permissionOverwrites.edit(overwrite.id, {
+                        ViewChannel: true,
+                        SendMessages: false
+                      }).catch(() => {});
+                    }
+
+                    const attachment = await transcripts
+                      .createTranscript(interaction.channel)
+                      .catch(() => null);
+
+                    const logChannel =
+                      interaction.guild.channels.cache.get(CHANNELS.botLogs) ||
+                      interaction.guild.channels.cache.get(CHANNELS.giveawayLogs);
+
+                    const logEmbed = new EmbedBuilder()
+                      .setTitle("🔒 Ticket Locked")
+                      .setColor(0xffcc00)
+                      .addFields(
+                        {
+                          name: "🎫 Ticket",
+                          value: `${interaction.channel.name}`,
+                          inline: true
+                        },
+                        {
+                          name: "🛡️ Closed By",
+                          value: `<@${interaction.user.id}>`,
+                          inline: true
+                        },
+                        {
+                          name: "📌 Status",
+                          value: "Ticket locked. Transcript saved.",
+                          inline: false
+                        }
+                      )
+                      .setTimestamp();
+
+                    if (logChannel) {
+                      await logChannel.send({
+                        embeds: [logEmbed],
+                        files: attachment ? [attachment] : []
+                      }).catch(() => {});
+                    }
+
+                    const deleteRow = new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId("ticket_delete_confirm")
+                        .setLabel("Delete Ticket")
+                        .setEmoji("🗑️")
+                        .setStyle(ButtonStyle.Danger)
+                    );
+
+                    const lockedEmbed = new EmbedBuilder()
+                      .setTitle("🔒 Ticket Closed")
+                      .setColor(0xffcc00)
+                      .setDescription(
+                        "This ticket has been locked for users.\n\n" +
+                        "Staff can still view and manage this ticket.\n" +
+                        "Click the button below if you want to delete it."
+                      )
+                      .setFooter({ text: "Transcript has been saved in logs" })
+                      .setTimestamp();
+
+                    await interaction.channel.send({
+                      embeds: [lockedEmbed],
+                      components: [deleteRow]
+                    }).catch(() => {});
+                  }
+
+                  // 🗑️ DELETE CLOSED TICKET
+                  if (
+                    interaction.isButton() &&
+                    interaction.customId === "ticket_delete_confirm"
+                  ) {
+                    const member = interaction.member;
+
+                    const isStaff =
+                      member.roles.cache.has(ROLES.owner) ||
+                      member.roles.cache.has(ROLES.admin) ||
+                      member.roles.cache.has(ROLES.headmod) ||
+                      member.roles.cache.has(ROLES.mod) ||
+                      member.roles.cache.has(ROLES.trial) ||
+                      isBypass(member);
+
+                    if (!isStaff) {
+                      return interaction.reply({
+                        content: "❌ Only staff can delete tickets.",
+                        ephemeral: true
+                      });
+                    }
+
+                    await interaction.reply({
+                      content: "🗑️ Ticket will be deleted in **5 seconds**...",
+                      ephemeral: false
+                    });
+
+                    setTimeout(() => {
+                      if (interaction.channel && interaction.channel.deletable) {
+                        interaction.channel.delete().catch(() => {});
+                      }
+                    }, 5000);
+                  }
                 // ❌ CANCEL CLOSE
                   if (
                     interaction.isButton() &&
