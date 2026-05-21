@@ -6999,22 +6999,28 @@ client.on("ready", () => {
 
                     const claimStatusRow = new ActionRowBuilder().addComponents(
                       new ButtonBuilder()
-                      .setCustomId("claimstatus_paid")
+                        .setCustomId("claimstatus_paid")
                         .setLabel("Paid")
                         .setEmoji("✅")
                         .setStyle(ButtonStyle.Success),
 
                       new ButtonBuilder()
-                      .setCustomId("claimstatus_rejected")
+                        .setCustomId("claimstatus_rejected")
                         .setLabel("Rejected")
                         .setEmoji("❌")
                         .setStyle(ButtonStyle.Danger),
 
                       new ButtonBuilder()
-                      .setCustomId("claimstatus_need_proof")
+                        .setCustomId("claimstatus_need_proof")
                         .setLabel("Need Proof")
                         .setEmoji("📸")
-                        .setStyle(ButtonStyle.Secondary)
+                        .setStyle(ButtonStyle.Secondary),
+
+                      new ButtonBuilder()
+                        .setCustomId(`claimstatus_remind_${interaction.user.id}_${g.host}_${g.sponsor || g.host}`)
+                        .setLabel("Remind Both")
+                        .setEmoji("🔔")
+                        .setStyle(ButtonStyle.Primary)
                     );
 
                     await channel.send({
@@ -7159,7 +7165,7 @@ client.on("ready", () => {
 
                       return;
                     }
-
+                   
                     if (interaction.customId === "claimstatus_rejected") {
                       await interaction.reply({
                         content:
@@ -7256,6 +7262,70 @@ client.on("ready", () => {
                         await channel.delete().catch(() => {});
                       }, 5000);
                     }
+                  }
+                  // 🔔 REMIND BOTH BUTTON
+                  if (
+                    interaction.isButton() &&
+                    interaction.customId.startsWith("claimstatus_remind_")
+                  ) {
+                    const member = interaction.member;
+
+                    const isStaff =
+                      member.roles.cache.has(ROLES.owner) ||
+                      member.roles.cache.has(ROLES.admin) ||
+                      member.roles.cache.has(ROLES.headmod) ||
+                      member.roles.cache.has(ROLES.mod) ||
+                      member.roles.cache.has(ROLES.trial) ||
+                      isBypass(member);
+
+                    if (!isStaff) {
+                      return interaction.reply({
+                        content: "❌ Staff only.",
+                        ephemeral: true
+                      });
+                    }
+
+                    const parts = interaction.customId.split("_");
+                    const winnerId  = parts[2];
+                    const hostId    = parts[3];
+                    const sponsorId = parts[4];
+
+                    const remindEmbed = new EmbedBuilder()
+                      .setTitle("🔔 Action Required!")
+                      .setColor(0xff9800)
+                      .setDescription(
+                        `Winner aur Sponsor/Host dono ko abhi is ticket mein present hona hai.\n\n` +
+                        `Jaldi action lo taaki ticket close ho sake!`
+                      )
+                      .addFields(
+                        {
+                          name: "🏆 Winner",
+                          value: `<@${winnerId}> — Prize lene ke liye ready raho.`,
+                          inline: false
+                        },
+                        {
+                          name: "💰 Sponsor / Host",
+                          value: `<@${sponsorId}> — Payment karo aur proof yahan upload karo.`,
+                          inline: false
+                        },
+                        {
+                          name: "🛡️ Reminded By",
+                          value: `<@${interaction.user.id}>`,
+                          inline: false
+                        }
+                      )
+                      .setFooter({ text: "Lunar Claim System • Jaldi karo!" })
+                      .setTimestamp();
+
+                    const mentionContent =
+                      sponsorId !== hostId
+                        ? `<@${winnerId}> <@${hostId}> <@${sponsorId}>`
+                        : `<@${winnerId}> <@${hostId}>`;
+
+                    await interaction.reply({
+                      content: mentionContent,
+                      embeds: [remindEmbed]
+                    });
                   }
                   // 🎫 CLOSE CONFIRM
                   if (
