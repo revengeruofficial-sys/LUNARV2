@@ -2241,7 +2241,8 @@ client.on("ready", () => {
 
                   if (level >= 4) {
                     await message.author.send({
-                      embeds: [embed]
+                      embeds: [embed],
+                      components: [buildHelpActionRow()]
                     }).catch(() => null);
 
                     return message.reply({
