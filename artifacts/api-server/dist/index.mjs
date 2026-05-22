@@ -5338,10 +5338,10 @@ var require_raw_body = __commonJS({
       if (done) {
         return readStream(stream, encoding, length, limit, wrap(done));
       }
-      return new Promise(function executor(resolve, reject) {
+      return new Promise(function executor(resolve2, reject) {
         readStream(stream, encoding, length, limit, function onRead(err, buf) {
           if (err) return reject(err);
-          resolve(buf);
+          resolve2(buf);
         });
       });
     }
@@ -18673,11 +18673,11 @@ var require_view = __commonJS({
     var debug = require_src()("express:view");
     var path = __require("node:path");
     var fs = __require("node:fs");
-    var dirname = path.dirname;
+    var dirname2 = path.dirname;
     var basename = path.basename;
     var extname = path.extname;
     var join = path.join;
-    var resolve = path.resolve;
+    var resolve2 = path.resolve;
     module.exports = View;
     function View(name, options) {
       var opts = options || {};
@@ -18711,8 +18711,8 @@ var require_view = __commonJS({
       debug('lookup "%s"', name);
       for (var i = 0; i < roots.length && !path2; i++) {
         var root = roots[i];
-        var loc = resolve(root, name);
-        var dir = dirname(loc);
+        var loc = resolve2(root, name);
+        var dir = dirname2(loc);
         var file = basename(loc);
         path2 = this.resolve(dir, file);
       }
@@ -18736,7 +18736,7 @@ var require_view = __commonJS({
       });
       sync = false;
     };
-    View.prototype.resolve = function resolve2(dir, file) {
+    View.prototype.resolve = function resolve3(dir, file) {
       var ext = this.ext;
       var path2 = join(dir, file);
       var stat = tryStat(path2);
@@ -20481,27 +20481,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router3;
+    module.exports = Router4;
     module.exports.Route = Route;
-    function Router3(options) {
-      if (!(this instanceof Router3)) {
-        return new Router3(options);
+    function Router4(options) {
+      if (!(this instanceof Router4)) {
+        return new Router4(options);
       }
       const opts = options || {};
-      function router3(req, res, next) {
-        router3.handle(req, res, next);
+      function router4(req, res, next) {
+        router4.handle(req, res, next);
       }
-      Object.setPrototypeOf(router3, this);
-      router3.caseSensitive = opts.caseSensitive;
-      router3.mergeParams = opts.mergeParams;
-      router3.params = {};
-      router3.strict = opts.strict;
-      router3.stack = [];
-      return router3;
+      Object.setPrototypeOf(router4, this);
+      router4.caseSensitive = opts.caseSensitive;
+      router4.mergeParams = opts.mergeParams;
+      router4.params = {};
+      router4.strict = opts.strict;
+      router4.stack = [];
+      return router4;
     }
-    Router3.prototype = function() {
+    Router4.prototype = function() {
     };
-    Router3.prototype.param = function param(name, fn) {
+    Router4.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20521,7 +20521,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router3.prototype.handle = function handle(req, res, callback) {
+    Router4.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20648,7 +20648,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router3.prototype.use = function use(handler) {
+    Router4.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -20681,7 +20681,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router3.prototype.route = function route(path) {
+    Router4.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -20696,7 +20696,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router3.prototype[method] = function(path) {
+      Router4.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -20877,15 +20877,15 @@ var require_application = __commonJS({
     var compileETag = require_utils3().compileETag;
     var compileQueryParser = require_utils3().compileQueryParser;
     var compileTrust = require_utils3().compileTrust;
-    var resolve = __require("node:path").resolve;
+    var resolve2 = __require("node:path").resolve;
     var once = require_once();
-    var Router3 = require_router();
+    var Router4 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router3 = null;
+      var router4 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -20894,13 +20894,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router3 === null) {
-            router3 = new Router3({
+          if (router4 === null) {
+            router4 = new Router4({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router3;
+          return router4;
         }
       });
     };
@@ -20931,7 +20931,7 @@ var require_application = __commonJS({
       this.mountpath = "/";
       this.locals.settings = this.settings;
       this.set("view", View);
-      this.set("views", resolve("views"));
+      this.set("views", resolve2("views"));
       this.set("jsonp callback name", "callback");
       if (env === "production") {
         this.enable("view cache");
@@ -20971,15 +20971,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router3 = this.router;
+      var router4 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router3.use(path, fn2);
+          return router4.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router3.use(path, function mounted_app(req, res, next) {
+        router4.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -22390,7 +22390,7 @@ var require_send = __commonJS({
     var extname = path.extname;
     var join = path.join;
     var normalize = path.normalize;
-    var resolve = path.resolve;
+    var resolve2 = path.resolve;
     var sep = path.sep;
     var BYTES_RANGE_REGEXP = /^ *bytes=/;
     var MAX_MAXAGE = 60 * 60 * 24 * 365 * 1e3;
@@ -22419,7 +22419,7 @@ var require_send = __commonJS({
       this._maxage = opts.maxAge || opts.maxage;
       this._maxage = typeof this._maxage === "string" ? ms(this._maxage) : Number(this._maxage);
       this._maxage = !isNaN(this._maxage) ? Math.min(Math.max(0, this._maxage), MAX_MAXAGE) : 0;
-      this._root = opts.root ? resolve(opts.root) : null;
+      this._root = opts.root ? resolve2(opts.root) : null;
     }
     util2.inherits(SendStream, Stream);
     SendStream.prototype.error = function error(status, err) {
@@ -22568,7 +22568,7 @@ var require_send = __commonJS({
           return res;
         }
         parts = normalize(path2).split(sep);
-        path2 = resolve(path2);
+        path2 = resolve2(path2);
       }
       if (containsDotFile(parts)) {
         debug('%s dotfile "%s"', this._dotfiles, path2);
@@ -22946,7 +22946,7 @@ var require_response = __commonJS({
     var cookie = require_cookie();
     var send = require_send();
     var extname = path.extname;
-    var resolve = path.resolve;
+    var resolve2 = path.resolve;
     var vary = require_vary();
     var { Buffer: Buffer2 } = __require("node:buffer");
     var res = Object.create(http.ServerResponse.prototype);
@@ -23152,7 +23152,7 @@ var require_response = __commonJS({
       }
       opts = Object.create(opts);
       opts.headers = headers;
-      var fullPath = !opts.root ? resolve(path2) : path2;
+      var fullPath = !opts.root ? resolve2(path2) : path2;
       return this.sendFile(fullPath, opts, done);
     };
     res.contentType = res.type = function contentType(type) {
@@ -23401,7 +23401,7 @@ var require_serve_static = __commonJS({
     var encodeUrl = require_encodeurl();
     var escapeHtml = require_escape_html();
     var parseUrl = require_parseurl();
-    var resolve = __require("path").resolve;
+    var resolve2 = __require("path").resolve;
     var send = require_send();
     var url = __require("url");
     module.exports = serveStatic;
@@ -23420,7 +23420,7 @@ var require_serve_static = __commonJS({
         throw new TypeError("option setHeaders must be function");
       }
       opts.maxage = opts.maxage || opts.maxAge || 0;
-      opts.root = resolve(root);
+      opts.root = resolve2(root);
       var onDirectory = redirect ? createRedirectDirectoryListener() : createNotFoundDirectoryListener();
       return function serveStatic2(req, res, next) {
         if (req.method !== "GET" && req.method !== "HEAD") {
@@ -23506,7 +23506,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router3 = require_router();
+    var Router4 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23528,8 +23528,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router3.Route;
-    exports.Router = Router3;
+    exports.Route = Router4.Route;
+    exports.Router = Router4;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -28388,12 +28388,12 @@ var require_logger = __commonJS({
 });
 
 // src/app.ts
-var import_express3 = __toESM(require_express2(), 1);
+var import_express4 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express2 = __toESM(require_express2(), 1);
+var import_express3 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -32278,6 +32278,51 @@ var pipelineType = ZodPipeline.create;
 var HealthCheckResponse = objectType({
   status: stringType()
 });
+var GetBotStatsResponse = objectType({
+  totalPunishments: numberType(),
+  pendingPunishments: numberType(),
+  approvedPunishments: numberType(),
+  totalStaff: numberType(),
+  totalGiveaways: numberType(),
+  activeGiveaways: numberType(),
+  totalStaffPoints: numberType()
+});
+var GetPunishmentsResponseItem = objectType({
+  id: stringType(),
+  target: stringType(),
+  moderator: stringType(),
+  type: stringType(),
+  reason: stringType(),
+  proof: stringType().nullish(),
+  status: stringType(),
+  timestamp: numberType(),
+  reviewedBy: stringType().nullish()
+});
+var GetPunishmentsResponse = arrayType(GetPunishmentsResponseItem);
+var GetStaffLeaderboardResponseItem = objectType({
+  userId: stringType(),
+  total: numberType(),
+  monthly: numberType(),
+  modlogs: numberType(),
+  tickets: numberType(),
+  giveaways: numberType(),
+  strikes: numberType()
+});
+var GetStaffLeaderboardResponse = arrayType(
+  GetStaffLeaderboardResponseItem
+);
+var GetGiveawaysResponseItem = objectType({
+  id: stringType(),
+  prize: stringType(),
+  ended: booleanType(),
+  winnerCount: numberType(),
+  host: stringType(),
+  allWinners: arrayType(stringType()).optional(),
+  entryCount: numberType().optional(),
+  endAt: numberType().optional(),
+  paused: booleanType().nullish()
+});
+var GetGiveawaysResponse = arrayType(GetGiveawaysResponseItem);
 
 // src/routes/health.ts
 var router = (0, import_express.Router)();
@@ -32287,10 +32332,121 @@ router.get("/healthz", (_req, res) => {
 });
 var health_default = router;
 
-// src/routes/index.ts
+// src/routes/bot.ts
+var import_express2 = __toESM(require_express2(), 1);
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 var router2 = (0, import_express2.Router)();
-router2.use(health_default);
-var routes_default = router2;
+var DATA_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "data.json");
+function loadData() {
+  const raw = readFileSync(DATA_PATH, "utf-8");
+  return JSON.parse(raw);
+}
+router2.get("/bot/stats", (req, res) => {
+  try {
+    const data = loadData();
+    const punishments = Object.values(data.punishmentLogs ?? {});
+    const staffPoints = data.staffPoints ?? {};
+    const giveaways = Object.values(data.giveaways ?? {});
+    const totalPunishments = punishments.length;
+    const pendingPunishments = punishments.filter((p) => p.status === "Pending").length;
+    const approvedPunishments = punishments.filter((p) => p.status === "Approved").length;
+    const totalStaff = Object.keys(staffPoints).length;
+    const totalGiveaways = giveaways.length;
+    const activeGiveaways = giveaways.filter((g) => !g.ended).length;
+    const totalStaffPoints = Object.values(staffPoints).reduce(
+      (sum, s) => sum + (s.total ?? 0),
+      0
+    );
+    res.json({
+      totalPunishments,
+      pendingPunishments,
+      approvedPunishments,
+      totalStaff,
+      totalGiveaways,
+      activeGiveaways,
+      totalStaffPoints
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to load bot stats");
+    res.status(500).json({ error: "Failed to load bot data" });
+  }
+});
+router2.get("/bot/punishments", (req, res) => {
+  try {
+    const data = loadData();
+    const logs = Object.values(data.punishmentLogs ?? {});
+    const result = logs.map((p) => ({
+      id: p.id,
+      target: p.target,
+      moderator: p.moderator,
+      type: p.type,
+      reason: p.reason,
+      proof: p.proof ?? null,
+      status: p.status,
+      timestamp: p.timestamp,
+      reviewedBy: p.reviewedBy ?? null
+    })).sort((a, b) => b.timestamp - a.timestamp);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Failed to load punishments");
+    res.status(500).json({ error: "Failed to load bot data" });
+  }
+});
+router2.get("/bot/staff", (req, res) => {
+  try {
+    const data = loadData();
+    const staffPoints = data.staffPoints ?? {};
+    const result = Object.entries(staffPoints).map(([userId, pts]) => {
+      const p = pts;
+      return {
+        userId,
+        total: p.total ?? 0,
+        monthly: p.monthly ?? 0,
+        modlogs: p.modlogs ?? 0,
+        tickets: p.tickets ?? 0,
+        giveaways: p.giveaways ?? 0,
+        strikes: p.strikes ?? 0
+      };
+    }).sort((a, b) => b.total - a.total);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Failed to load staff leaderboard");
+    res.status(500).json({ error: "Failed to load bot data" });
+  }
+});
+router2.get("/bot/giveaways", (req, res) => {
+  try {
+    const data = loadData();
+    const giveaways = data.giveaways ?? {};
+    const result = Object.entries(giveaways).map(([id, g]) => {
+      const gw = g;
+      return {
+        id,
+        prize: gw.prize ?? "Unknown",
+        ended: gw.ended ?? false,
+        winnerCount: gw.winnerCount ?? 1,
+        host: gw.host ?? "",
+        allWinners: gw.allWinners ?? [],
+        entryCount: Object.keys(gw.entryMap ?? {}).length,
+        endAt: gw.endAt ?? 0,
+        paused: gw.paused ?? null
+      };
+    }).sort((a, b) => b.endAt - a.endAt);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Failed to load giveaways");
+    res.status(500).json({ error: "Failed to load bot data" });
+  }
+});
+var bot_default = router2;
+
+// src/routes/index.ts
+var router3 = (0, import_express3.Router)();
+router3.use(health_default);
+router3.use(bot_default);
+var routes_default = router3;
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -32311,7 +32467,7 @@ var logger = (0, import_pino.default)({
 });
 
 // src/app.ts
-var app = (0, import_express3.default)();
+var app = (0, import_express4.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -32332,8 +32488,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express3.default.json());
-app.use(import_express3.default.urlencoded({ extended: true }));
+app.use(import_express4.default.json());
+app.use(import_express4.default.urlencoded({ extended: true }));
 app.use("/api", routes_default);
 var app_default = app;
 

@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: bot
+    description: Discord bot dashboard data
 paths:
   /healthz:
     get:
@@ -24,6 +26,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /bot/stats:
+    get:
+      operationId: getBotStats
+      tags: [bot]
+      summary: Get overall bot statistics
+      responses:
+        "200":
+          description: Bot statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStats"
+
+  /bot/punishments:
+    get:
+      operationId: getPunishments
+      tags: [bot]
+      summary: Get punishment logs
+      responses:
+        "200":
+          description: List of punishment logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PunishmentLog"
+
+  /bot/staff:
+    get:
+      operationId: getStaffLeaderboard
+      tags: [bot]
+      summary: Get staff points leaderboard
+      responses:
+        "200":
+          description: Staff leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffEntry"
+
+  /bot/giveaways:
+    get:
+      operationId: getGiveaways
+      tags: [bot]
+      summary: Get giveaways list
+      responses:
+        "200":
+          description: List of giveaways
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Giveaway"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +95,114 @@ components:
       required:
         - status
 
+    BotStats:
+      type: object
+      required:
+        - totalPunishments
+        - pendingPunishments
+        - approvedPunishments
+        - totalStaff
+        - totalGiveaways
+        - activeGiveaways
+        - totalStaffPoints
+      properties:
+        totalPunishments:
+          type: integer
+        pendingPunishments:
+          type: integer
+        approvedPunishments:
+          type: integer
+        totalStaff:
+          type: integer
+        totalGiveaways:
+          type: integer
+        activeGiveaways:
+          type: integer
+        totalStaffPoints:
+          type: integer
+
+    PunishmentLog:
+      type: object
+      required:
+        - id
+        - target
+        - moderator
+        - type
+        - reason
+        - status
+        - timestamp
+      properties:
+        id:
+          type: string
+        target:
+          type: string
+        moderator:
+          type: string
+        type:
+          type: string
+        reason:
+          type: string
+        proof:
+          type: ["string", "null"]
+        status:
+          type: string
+        timestamp:
+          type: integer
+        reviewedBy:
+          type: ["string", "null"]
+
+    StaffEntry:
+      type: object
+      required:
+        - userId
+        - total
+        - monthly
+        - modlogs
+        - tickets
+        - giveaways
+        - strikes
+      properties:
+        userId:
+          type: string
+        total:
+          type: integer
+        monthly:
+          type: integer
+        modlogs:
+          type: integer
+        tickets:
+          type: integer
+        giveaways:
+          type: integer
+        strikes:
+          type: integer
+
+    Giveaway:
+      type: object
+      required:
+        - id
+        - prize
+        - ended
+        - winnerCount
+        - host
+      properties:
+        id:
+          type: string
+        prize:
+          type: string
+        ended:
+          type: boolean
+        winnerCount:
+          type: integer
+        host:
+          type: string
+        allWinners:
+          type: array
+          items:
+            type: string
+        entryCount:
+          type: integer
+        endAt:
+          type: integer
+        paused:
+          type: ["boolean", "null"]
