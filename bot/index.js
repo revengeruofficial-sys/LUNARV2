@@ -2907,8 +2907,18 @@ client.on("ready", () => {
                       .setStyle(ButtonStyle.Danger)
                   );
 
-                  message.channel.send({
-                    content: "⚠️ **Confirm Ticket Close?**",
+                  const closePromptEmbed = new EmbedBuilder()
+                    .setTitle("⚠️ Confirm Ticket Close?")
+                    .setColor(0xffcc00)
+                    .setDescription(
+                      "Are you sure you want to close this ticket?\n\n" +
+                      "After confirmation, transcript and logs will be saved, then the ticket will delete in **5 seconds**."
+                    )
+                    .setFooter({ text: `Requested by ${message.author.tag}` })
+                    .setTimestamp();
+
+                  return message.channel.send({
+                    embeds: [closePromptEmbed],
                     components: [row]
                   });
                 }
@@ -7241,10 +7251,6 @@ client.on("ready", () => {
                         interaction.guild.channels.cache.get(CHANNELS.botLogs) ||
                         interaction.guild.channels.cache.get(CHANNELS.giveawayLogs);
 
-                      const paidAttachment = await transcripts
-                        .createTranscript(interaction.channel)
-                        .catch(() => null);
-
                       if (paidLogChannel) {
                         const paidLogEmbed = new EmbedBuilder()
                           .setTitle("✅ Claim Ticket Marked Paid")
@@ -7252,7 +7258,7 @@ client.on("ready", () => {
                           .addFields(
                             {
                               name: "🎫 Ticket",
-                              value: interaction.channel.name,
+                              value: `${interaction.channel}`,
                               inline: true
                             },
                             {
@@ -7261,23 +7267,32 @@ client.on("ready", () => {
                               inline: true
                             },
                             {
-                              name: "📌 Status",
-                              value: "Payment verified. Ticket is still open.",
+                              name: "📌 Next Step",
+                              value: "Waiting for staff confirmation to close the ticket.",
                               inline: false
                             }
                           )
                           .setTimestamp();
 
                         await paidLogChannel.send({
-                          embeds: [paidLogEmbed],
-                          files: paidAttachment ? [paidAttachment] : []
+                          embeds: [paidLogEmbed]
                         }).catch(() => {});
                       }
 
+                      const closeConfirmRow = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                          .setCustomId("close_confirm")
+                          .setLabel("✅ Confirm Ticket Close")
+                          .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                          .setCustomId("close_cancel")
+                          .setLabel("❌ Cancel")
+                          .setStyle(ButtonStyle.Danger)
+                      );
+
                       await interaction.channel.send({
-                        content:
-                          "✅ Payment marked as paid.\n" +
-                          "Use `.close` when you want to lock this ticket and show the delete button."
+                        content: "✅ **Payment marked as paid.**\n⚠️ **Confirm Ticket Close?**",
+                        components: [closeConfirmRow]
                       }).catch(() => {});
                     }
                   }
@@ -7362,7 +7377,7 @@ client.on("ready", () => {
 
                     if (!isStaff) {
                       return interaction.reply({
-                        content: "❌ Not allowed",
+                        content: "❌ Not allowed to close tickets.",
                         ephemeral: true
                       });
                     }
@@ -7374,26 +7389,15 @@ client.on("ready", () => {
                       });
                     }
 
-                    await interaction.deferUpdate();
+                    // Remove the Confirm/Cancel buttons immediately so they aren't clicked twice
+                    await interaction.update({ components: [] }).catch(() => {});
 
-                    const staffRoles = [
-                      ROLES.owner,
-                      ROLES.admin,
-                      ROLES.headmod,
-                      ROLES.mod,
-                      ROLES.trial
-                    ];
+                    // Start the 5-second countdown message
+                    await interaction.channel.send({
+                      content: "⏳ **Ticket will be closed in 5 seconds...**\n*Saving transcripts and logs...*"
+                    });
 
-                    for (const overwrite of interaction.channel.permissionOverwrites.cache.values()) {
-                      if (overwrite.id === interaction.guild.roles.everyone.id) continue;
-                      if (staffRoles.includes(overwrite.id)) continue;
-
-                      await interaction.channel.permissionOverwrites.edit(overwrite.id, {
-                        ViewChannel: true,
-                        SendMessages: false
-                      }).catch(() => {});
-                    }
-
+                    // Generate Transcript
                     const attachment = await transcripts
                       .createTranscript(interaction.channel)
                       .catch(() => null);
@@ -7402,87 +7406,31 @@ client.on("ready", () => {
                       interaction.guild.channels.cache.get(CHANNELS.botLogs) ||
                       interaction.guild.channels.cache.get(CHANNELS.giveawayLogs);
 
-                    const logEmbed = new EmbedBuilder()
-                      .setTitle("🔒 Ticket Locked")
-                      .setColor(0xffcc00)
-                      .addFields(
-                        {
-                          name: "🎫 Ticket",
-                          value: `${interaction.channel.name}`,
-                          inline: true
-                        },
-                        {
-                          name: "🛡️ Closed By",
-                          value: `<@${interaction.user.id}>`,
-                          inline: true
-                        },
-                        {
-                          name: "📌 Status",
-                          value: "Ticket locked. Transcript saved.",
-                          inline: false
-                        }
-                      )
-                      .setTimestamp();
-
                     if (logChannel) {
+                      const logEmbed = new EmbedBuilder()
+                        .setTitle("🗑️ Ticket Closed & Deleted")
+                        .setColor(0xff3b3b)
+                        .addFields(
+                          {
+                            name: "🎫 Ticket",
+                            value: `${interaction.channel.name}`,
+                            inline: true
+                          },
+                          {
+                            name: "🛡️ Closed By",
+                            value: `<@${interaction.user.id}>`,
+                            inline: true
+                          }
+                        )
+                        .setTimestamp();
+
                       await logChannel.send({
                         embeds: [logEmbed],
                         files: attachment ? [attachment] : []
                       }).catch(() => {});
                     }
 
-                    const deleteRow = new ActionRowBuilder().addComponents(
-                      new ButtonBuilder()
-                        .setCustomId("ticket_delete_confirm")
-                        .setLabel("Delete Ticket")
-                        .setEmoji("🗑️")
-                        .setStyle(ButtonStyle.Danger)
-                    );
-
-                    const lockedEmbed = new EmbedBuilder()
-                      .setTitle("🔒 Ticket Closed")
-                      .setColor(0xffcc00)
-                      .setDescription(
-                        "This ticket has been locked for users.\n\n" +
-                        "Staff can still view and manage this ticket.\n" +
-                        "Click the button below if you want to delete it."
-                      )
-                      .setFooter({ text: "Transcript has been saved in logs" })
-                      .setTimestamp();
-
-                    await interaction.channel.send({
-                      embeds: [lockedEmbed],
-                      components: [deleteRow]
-                    }).catch(() => {});
-                  }
-
-                  // 🗑️ DELETE CLOSED TICKET
-                  if (
-                    interaction.isButton() &&
-                    interaction.customId === "ticket_delete_confirm"
-                  ) {
-                    const member = interaction.member;
-
-                    const isStaff =
-                      member.roles.cache.has(ROLES.owner) ||
-                      member.roles.cache.has(ROLES.admin) ||
-                      member.roles.cache.has(ROLES.headmod) ||
-                      member.roles.cache.has(ROLES.mod) ||
-                      member.roles.cache.has(ROLES.trial) ||
-                      isBypass(member);
-
-                    if (!isStaff) {
-                      return interaction.reply({
-                        content: "❌ Only staff can delete tickets.",
-                        ephemeral: true
-                      });
-                    }
-
-                    await interaction.reply({
-                      content: "🗑️ Ticket will be deleted in **5 seconds**...",
-                      ephemeral: false
-                    });
-
+                    // Delete the channel exactly after 5 seconds
                     setTimeout(() => {
                       if (interaction.channel && interaction.channel.deletable) {
                         interaction.channel.delete().catch(() => {});
@@ -7494,8 +7442,14 @@ client.on("ready", () => {
                     interaction.isButton() &&
                     interaction.customId === "close_cancel"
                   ) {
-                return interaction.reply({ content: "❌ Ticket close cancelled", ephemeral: true });
-              }
+                    await interaction.update({
+                      content: "❌ Ticket close cancelled.",
+                      embeds: [],
+                      components: []
+                    }).catch(() => {});
+
+                    return;
+                  }
 
 
                   // 🎛️ ONGOING GIVEAWAY EDIT MODAL
