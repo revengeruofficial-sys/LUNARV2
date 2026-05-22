@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -26,6 +25,8 @@ export const GetBotStatsResponse = zod.object({
   totalGiveaways: zod.number(),
   activeGiveaways: zod.number(),
   totalStaffPoints: zod.number(),
+  caseCounter: zod.number(),
+  totalTrackedUsers: zod.number(),
 });
 
 /**
@@ -75,3 +76,15 @@ export const GetGiveawaysResponseItem = zod.object({
   paused: zod.boolean().nullish(),
 });
 export const GetGiveawaysResponse = zod.array(GetGiveawaysResponseItem);
+
+/**
+ * @summary Get top message senders
+ */
+export const GetMessageStatsResponseItem = zod.object({
+  userId: zod.string(),
+  total: zod.number(),
+  daily: zod.number(),
+  weekly: zod.number(),
+  monthly: zod.number(),
+});
+export const GetMessageStatsResponse = zod.array(GetMessageStatsResponseItem);

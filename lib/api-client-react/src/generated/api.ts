@@ -17,6 +17,7 @@ import type {
   BotStats,
   Giveaway,
   HealthStatus,
+  MessageStat,
   PunishmentLog,
   StaffEntry,
 } from "./api.schemas";
@@ -31,7 +32,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -396,6 +396,81 @@ export function useGetGiveaways<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGiveawaysQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get top message senders
+ */
+export const getGetMessageStatsUrl = () => {
+  return `/api/bot/messages`;
+};
+
+export const getMessageStats = async (
+  options?: RequestInit,
+): Promise<MessageStat[]> => {
+  return customFetch<MessageStat[]>(getGetMessageStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMessageStatsQueryKey = () => {
+  return [`/api/bot/messages`] as const;
+};
+
+export const getGetMessageStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMessageStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMessageStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMessageStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMessageStats>>> = ({
+    signal,
+  }) => getMessageStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMessageStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMessageStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMessageStats>>
+>;
+export type GetMessageStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get top message senders
+ */
+
+export function useGetMessageStats<
+  TData = Awaited<ReturnType<typeof getMessageStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMessageStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMessageStatsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -32285,7 +32285,9 @@ var GetBotStatsResponse = objectType({
   totalStaff: numberType(),
   totalGiveaways: numberType(),
   activeGiveaways: numberType(),
-  totalStaffPoints: numberType()
+  totalStaffPoints: numberType(),
+  caseCounter: numberType(),
+  totalTrackedUsers: numberType()
 });
 var GetPunishmentsResponseItem = objectType({
   id: stringType(),
@@ -32323,6 +32325,14 @@ var GetGiveawaysResponseItem = objectType({
   paused: booleanType().nullish()
 });
 var GetGiveawaysResponse = arrayType(GetGiveawaysResponseItem);
+var GetMessageStatsResponseItem = objectType({
+  userId: stringType(),
+  total: numberType(),
+  daily: numberType(),
+  weekly: numberType(),
+  monthly: numberType()
+});
+var GetMessageStatsResponse = arrayType(GetMessageStatsResponseItem);
 
 // src/routes/health.ts
 var router = (0, import_express.Router)();
@@ -32349,6 +32359,7 @@ router2.get("/bot/stats", (req, res) => {
     const punishments = Object.values(data.punishmentLogs ?? {});
     const staffPoints = data.staffPoints ?? {};
     const giveaways = Object.values(data.giveaways ?? {});
+    const messageStats = data.messageStats ?? {};
     const totalPunishments = punishments.length;
     const pendingPunishments = punishments.filter((p) => p.status === "Pending").length;
     const approvedPunishments = punishments.filter((p) => p.status === "Approved").length;
@@ -32366,7 +32377,9 @@ router2.get("/bot/stats", (req, res) => {
       totalStaff,
       totalGiveaways,
       activeGiveaways,
-      totalStaffPoints
+      totalStaffPoints,
+      caseCounter: data.caseCounter ?? 0,
+      totalTrackedUsers: Object.keys(messageStats).length
     });
   } catch (err) {
     req.log.error({ err }, "Failed to load bot stats");
@@ -32437,6 +32450,26 @@ router2.get("/bot/giveaways", (req, res) => {
     res.json(result);
   } catch (err) {
     req.log.error({ err }, "Failed to load giveaways");
+    res.status(500).json({ error: "Failed to load bot data" });
+  }
+});
+router2.get("/bot/messages", (req, res) => {
+  try {
+    const data = loadData();
+    const messageStats = data.messageStats ?? {};
+    const result = Object.entries(messageStats).map(([userId, ms]) => {
+      const m = ms;
+      return {
+        userId,
+        total: m.total ?? 0,
+        daily: m.daily ?? 0,
+        weekly: m.weekly ?? 0,
+        monthly: m.monthly ?? 0
+      };
+    }).sort((a, b) => b.total - a.total);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Failed to load message stats");
     res.status(500).json({ error: "Failed to load bot data" });
   }
 });

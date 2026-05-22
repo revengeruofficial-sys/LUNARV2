@@ -18,7 +18,6 @@ paths:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -85,6 +84,21 @@ paths:
                 items:
                   $ref: "#/components/schemas/Giveaway"
 
+  /bot/messages:
+    get:
+      operationId: getMessageStats
+      tags: [bot]
+      summary: Get top message senders
+      responses:
+        "200":
+          description: Message stats leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MessageStat"
+
 components:
   schemas:
     HealthStatus:
@@ -105,6 +119,8 @@ components:
         - totalGiveaways
         - activeGiveaways
         - totalStaffPoints
+        - caseCounter
+        - totalTrackedUsers
       properties:
         totalPunishments:
           type: integer
@@ -119,6 +135,10 @@ components:
         activeGiveaways:
           type: integer
         totalStaffPoints:
+          type: integer
+        caseCounter:
+          type: integer
+        totalTrackedUsers:
           type: integer
 
     PunishmentLog:
@@ -206,3 +226,23 @@ components:
           type: integer
         paused:
           type: ["boolean", "null"]
+
+    MessageStat:
+      type: object
+      required:
+        - userId
+        - total
+        - daily
+        - weekly
+        - monthly
+      properties:
+        userId:
+          type: string
+        total:
+          type: integer
+        daily:
+          type: integer
+        weekly:
+          type: integer
+        monthly:
+          type: integer

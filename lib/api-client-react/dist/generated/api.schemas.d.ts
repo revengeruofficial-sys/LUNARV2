@@ -16,6 +16,8 @@ export interface BotStats {
     totalGiveaways: number;
     activeGiveaways: number;
     totalStaffPoints: number;
+    caseCounter: number;
+    totalTrackedUsers: number;
 }
 export interface PunishmentLog {
     id: string;
@@ -50,5 +52,12 @@ export interface Giveaway {
     endAt?: number;
     /** @nullable */
     paused?: boolean | null;
+}
+export interface MessageStat {
+    userId: string;
+    total: number;
+    daily: number;
+    weekly: number;
+    monthly: number;
 }
 //# sourceMappingURL=api.schemas.d.ts.map

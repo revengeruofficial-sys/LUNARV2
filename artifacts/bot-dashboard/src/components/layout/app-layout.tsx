@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { LayoutDashboard, Gavel, ShieldAlert, Gift, Settings } from "lucide-react";
+import { LayoutDashboard, Gavel, ShieldAlert, Gift, Settings, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/format";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -10,6 +10,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/punishments", label: "Punishments", icon: Gavel },
     { href: "/staff", label: "Staff Leaderboard", icon: ShieldAlert },
     { href: "/giveaways", label: "Giveaways", icon: Gift },
+    { href: "/messages", label: "Message Stats", icon: MessageSquare },
   ];
 
   return (

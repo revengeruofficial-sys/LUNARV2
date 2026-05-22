@@ -7,7 +7,6 @@
  */
 import * as zod from "zod";
 /**
- * Returns server health status
  * @summary Health check
  */
 export declare const HealthCheckResponse: zod.ZodObject<{
@@ -28,6 +27,8 @@ export declare const GetBotStatsResponse: zod.ZodObject<{
     totalGiveaways: zod.ZodNumber;
     activeGiveaways: zod.ZodNumber;
     totalStaffPoints: zod.ZodNumber;
+    caseCounter: zod.ZodNumber;
+    totalTrackedUsers: zod.ZodNumber;
 }, "strip", zod.ZodTypeAny, {
     totalPunishments: number;
     pendingPunishments: number;
@@ -36,6 +37,8 @@ export declare const GetBotStatsResponse: zod.ZodObject<{
     totalGiveaways: number;
     activeGiveaways: number;
     totalStaffPoints: number;
+    caseCounter: number;
+    totalTrackedUsers: number;
 }, {
     totalPunishments: number;
     pendingPunishments: number;
@@ -44,6 +47,8 @@ export declare const GetBotStatsResponse: zod.ZodObject<{
     totalGiveaways: number;
     activeGiveaways: number;
     totalStaffPoints: number;
+    caseCounter: number;
+    totalTrackedUsers: number;
 }>;
 /**
  * @summary Get punishment logs
@@ -227,5 +232,46 @@ export declare const GetGiveawaysResponse: zod.ZodArray<zod.ZodObject<{
     entryCount?: number | undefined;
     endAt?: number | undefined;
     paused?: boolean | null | undefined;
+}>, "many">;
+/**
+ * @summary Get top message senders
+ */
+export declare const GetMessageStatsResponseItem: zod.ZodObject<{
+    userId: zod.ZodString;
+    total: zod.ZodNumber;
+    daily: zod.ZodNumber;
+    weekly: zod.ZodNumber;
+    monthly: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    userId: string;
+    total: number;
+    monthly: number;
+    daily: number;
+    weekly: number;
+}, {
+    userId: string;
+    total: number;
+    monthly: number;
+    daily: number;
+    weekly: number;
+}>;
+export declare const GetMessageStatsResponse: zod.ZodArray<zod.ZodObject<{
+    userId: zod.ZodString;
+    total: zod.ZodNumber;
+    daily: zod.ZodNumber;
+    weekly: zod.ZodNumber;
+    monthly: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    userId: string;
+    total: number;
+    monthly: number;
+    daily: number;
+    weekly: number;
+}, {
+    userId: string;
+    total: number;
+    monthly: number;
+    daily: number;
+    weekly: number;
 }>, "many">;
 //# sourceMappingURL=api.d.ts.map

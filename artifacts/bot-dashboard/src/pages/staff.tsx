@@ -11,11 +11,12 @@ export default function Staff() {
     query: {
       queryKey: getGetStaffLeaderboardQueryKey(),
       enabled: true,
-    }
+      refetchInterval: 30000,
+    },
   });
 
   const getRankIcon = (index: number) => {
-    switch(index) {
+    switch (index) {
       case 0: return <Trophy className="w-5 h-5 text-yellow-400" />;
       case 1: return <Medal className="w-5 h-5 text-gray-300" />;
       case 2: return <Award className="w-5 h-5 text-amber-700" />;
@@ -26,7 +27,12 @@ export default function Staff() {
   return (
     <div className="space-y-6" data-testid="page-staff">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold tracking-tight">Staff Leaderboard</h2>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Staff Leaderboard</h2>
+          {!isLoading && (
+            <p className="text-sm text-muted-foreground mt-1">{staffList?.length ?? 0} staff members</p>
+          )}
+        </div>
       </div>
 
       <Card className="bg-card border-card-border overflow-hidden">
@@ -38,6 +44,7 @@ export default function Staff() {
               <TableHead className="text-right">Modlogs</TableHead>
               <TableHead className="text-right">Tickets</TableHead>
               <TableHead className="text-right">Giveaways</TableHead>
+              <TableHead className="text-right">Monthly</TableHead>
               <TableHead className="text-right">Strikes</TableHead>
               <TableHead className="text-right text-primary font-bold">Total Points</TableHead>
             </TableRow>
@@ -52,27 +59,31 @@ export default function Staff() {
                   <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-6 w-16 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : staffList?.length === 0 ? (
               <TableRow className="border-card-border hover:bg-transparent">
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No staff data available.
                 </TableCell>
               </TableRow>
             ) : (
               staffList?.map((staff, index) => (
-                <TableRow key={staff.userId} className="border-card-border hover:bg-secondary/40 transition-colors">
+                <TableRow
+                  key={staff.userId}
+                  className="border-card-border hover:bg-secondary/40 transition-colors"
+                  data-testid={`row-staff-${staff.userId}`}
+                >
                   <TableCell className="text-center flex justify-center py-4">
                     {getRankIcon(index)}
                   </TableCell>
-                  <TableCell className="font-mono font-medium">
-                    {shortId(staff.userId)}
-                  </TableCell>
+                  <TableCell className="font-mono font-medium">{shortId(staff.userId)}</TableCell>
                   <TableCell className="text-right text-muted-foreground font-mono">{staff.modlogs}</TableCell>
                   <TableCell className="text-right text-muted-foreground font-mono">{staff.tickets}</TableCell>
                   <TableCell className="text-right text-muted-foreground font-mono">{staff.giveaways}</TableCell>
+                  <TableCell className="text-right text-muted-foreground font-mono">{staff.monthly}</TableCell>
                   <TableCell className="text-right">
                     {staff.strikes > 0 ? (
                       <Badge variant="destructive" className="font-mono bg-destructive/20 text-destructive border-none">

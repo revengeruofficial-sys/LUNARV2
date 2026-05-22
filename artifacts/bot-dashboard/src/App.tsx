@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import Punishments from "@/pages/punishments";
 import Staff from "@/pages/staff";
 import Giveaways from "@/pages/giveaways";
+import Messages from "@/pages/messages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/punishments" component={Punishments} />
         <Route path="/staff" component={Staff} />
         <Route path="/giveaways" component={Giveaways} />
+        <Route path="/messages" component={Messages} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

@@ -8,6 +8,7 @@
 export * from "./botStats";
 export * from "./giveaway";
 export * from "./healthStatus";
+export * from "./messageStat";
 export * from "./punishmentLog";
 export * from "./staffEntry";
 //# sourceMappingURL=index.d.ts.map

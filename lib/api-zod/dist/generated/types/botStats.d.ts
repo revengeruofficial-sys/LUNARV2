@@ -13,5 +13,7 @@ export interface BotStats {
     totalGiveaways: number;
     activeGiveaways: number;
     totalStaffPoints: number;
+    caseCounter: number;
+    totalTrackedUsers: number;
 }
 //# sourceMappingURL=botStats.d.ts.map

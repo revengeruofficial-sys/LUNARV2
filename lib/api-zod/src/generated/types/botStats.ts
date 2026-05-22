@@ -14,4 +14,6 @@ export interface BotStats {
   totalGiveaways: number;
   activeGiveaways: number;
   totalStaffPoints: number;
+  caseCounter: number;
+  totalTrackedUsers: number;
 }
