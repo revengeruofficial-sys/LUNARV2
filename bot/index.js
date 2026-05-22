@@ -351,97 +351,51 @@ if (data.lastWeeklyReportKey) {
 
     return 0;
   }
-  function buildHelpEmbed(level) {
-    const embed = new EmbedBuilder()
-      .setTitle("Lunar Help Menu")
-      .setColor(0x5865f2)
-      .setDescription(`Your access level: ${level}`)
-      .addFields(
-        {
-          name: "Public Commands",
-          value:
-            "`.help` - Show help menu\n" +
-            "`/help` - Show help menu\n" +
-            "`.test` - Test bot response\n" +
-            "`.messages` - View message stats\n" +
-            "`.messagelb` - View message leaderboard",
-          inline: false
-        }
-      );
+function buildHelpEmbed(level) {
+  const commandCount = level >= 4 ? "80+" : level >= 2 ? "45+" : "18+";
 
-    if (level >= 1) {
-      embed.addFields({
-        name: "Level 1 Staff Commands",
+  return new EmbedBuilder()
+    .setTitle("Lunar")
+    .setColor(0x2b2d31)
+    .setDescription(
+      "**Help menu**\n\n" +
+      "• Prefix for this server is `.`\n" +
+      `• Available commands: **${commandCount}**\n` +
+      `• Your access level: **${level}**\n\n` +
+      "━━━━━━━━━━━━━━━━━━━━"
+    )
+    .addFields(
+      {
+        name: "__Main__",
         value:
-          "`.modlog` - Submit/view moderation log\n" +
-          "`/cases` - View moderation cases\n" +
-          "`.close` - Close ticket/channel\n" +
-          "`.gblacklist` - Blacklist user from giveaways\n" +
-          "`.staffstats` - View staff stats",
+          "🛡️ : **Security**\n" +
+          "⚒️ : **Automod**\n" +
+          "🚫 : **Moderation**\n" +
+          "🎫 : **Tickets**\n" +
+          "📊 : **Staff System**",
         inline: false
-      });
-    }
-
-    if (level >= 2) {
-      embed.addFields({
-        name: "Level 2 Giveaway/Mod Commands",
+      },
+      {
+        name: "__Extra__",
         value:
-          "`.gstart` - Start quick giveaway\n" +
-          "`.greroll` - Reroll giveaway winner\n" +
-          "`.gend` - End giveaway instantly\n" +
-          "`.gpause` - Pause giveaway\n" +
-          "`.gresume` - Resume giveaway\n" +
-          "`.gunblacklist` - Remove giveaway blacklist\n" +
-          "`.gblacklists` - View blacklisted users\n" +
-          "`.strike` - Strike staff member\n" +
-          "`.removestrike` - Remove strike\n" +
-          "`.strikes` - View strikes\n" +
-          "`.modlogs` - View all mod cases\n" +
-          "`.case` - View specific case\n" +
-          "`.stafflb` - Staff leaderboard",
+          "🎉 : **Giveaways**\n" +
+          "⚙️ : **Utility**\n" +
+          "📚 : **Cases**\n" +
+          "👤 : **Profiles**\n" +
+          "🔒 : **Hidden**",
         inline: false
-      });
-    }
-
-    if (level >= 3) {
-      embed.addFields({
-        name: "Level 3 Commands",
-        value:
-          "`/gstart` - Start giveaway\n" +
-          "`/giveaway create` - Create premium giveaway\n" +
-          "`/strike` - Strike staff member\n" +
-          "`/modlog` - Submit modlog",
+      },
+      {
+        name: "Select a category to view",
+        value: "Use the dropdown below to open a command category.",
         inline: false
-      });
-    }
-
-    if (level >= 4) {
-      embed.addFields({
-        name: "Hidden Level 4 Commands",
-        value:
-          "`.gfix @user messageId` - Fix giveaway winner\n" +
-          "`.greq messageId daily/weekly/monthly amount` - Set giveaway requirements\n" +
-          "`.addpoints @user amount reason` - Add staff points\n" +
-          "`.addmessages @user type amount` - Add message stats\n" +
-          "`.removemessages @user type amount` - Remove message stats\n" +
-          "`.setmessages @user type amount` - Set message stats\n" +
-          "`.resetdaily @user` - Reset daily messages\n" +
-          "`.resetweekly @user` - Reset weekly messages\n" +
-          "`.resetmonthly @user` - Reset monthly messages\n" +
-          "`.clearstrikes @user` - Clear strikes\n" +
-          "`.motm` - Force moderator of the month\n" +
-          "`/addpoints` - Add staff points",
-        inline: false
-      });
-    }
-
-    return embed
-      .setFooter({
-        text: "Lunar Advanced Discord System"
-      })
-
-      .setTimestamp();
-  }
+      }
+    )
+    .setFooter({
+      text: `Lunar Help • Access Level ${level}`
+    })
+    .setTimestamp();
+}
   function buildHelpCategoryEmbed(category, level) {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
@@ -619,6 +573,27 @@ if (data.lastWeeklyReportKey) {
         .addOptions(options)
     );
   }
+function buildHelpActionRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("help_all")
+      .setLabel("All Commands")
+      .setEmoji("✅")
+      .setStyle(ButtonStyle.Success),
+
+    new ButtonBuilder()
+      .setCustomId("help_report")
+      .setLabel("Report")
+      .setEmoji("🚨")
+      .setStyle(ButtonStyle.Danger),
+
+    new ButtonBuilder()
+      .setLabel("Support")
+      .setEmoji("🛟")
+      .setStyle(ButtonStyle.Link)
+      .setURL("https://discord.com/users/1288801215282413644")
+  );
+}
               function isBypass(member) {
                 if (!member) return false;
 
@@ -2277,6 +2252,7 @@ client.on("ready", () => {
 
                   return message.reply({
                     embeds: [embed],
+                    components: [buildHelpMenu(level), buildHelpActionRow()],
                     allowedMentions: { repliedUser: false }
                   });
                 }
@@ -4429,7 +4405,7 @@ client.on("ready", () => {
 
                     return interaction.editReply({
                       embeds: [embed],
-                      components: [buildHelpMenu(level)]
+                      components: [buildHelpMenu(level), buildHelpActionRow()]
                     });
                   }
 
@@ -4987,6 +4963,28 @@ client.on("ready", () => {
                       ephemeral: true
                     });
                   }
+                  // 📘 HELP ACTION BUTTONS
+                  if (
+                    interaction.isButton() &&
+                    ["help_all", "help_report"].includes(interaction.customId)
+                  ) {
+                    const level = getUserLevel(interaction.member);
+
+                    if (interaction.customId === "help_all") {
+                      return interaction.update({
+                        embeds: [buildHelpEmbed(level)],
+                        components: [buildHelpMenu(level), buildHelpActionRow()]
+                      });
+                    }
+
+                    if (interaction.customId === "help_report") {
+                      return interaction.reply({
+                        content:
+                          "🚨 Please report the issue to server staff with screenshots and command name.",
+                        ephemeral: true
+                      });
+                    }
+                  }
                   // 📘 HELP CATEGORY DROPDOWN
                   if (
                     interaction.isStringSelectMenu() &&
@@ -4997,7 +4995,7 @@ client.on("ready", () => {
 
                     return interaction.update({
                       embeds: [buildHelpCategoryEmbed(category, level)],
-                      components: [buildHelpMenu(level)]
+                      components: [buildHelpMenu(level), buildHelpActionRow()]
                     });
                   }
                   // 🎛️ GIVEAWAY EDIT DROPDOWN
@@ -7758,6 +7756,15 @@ client.on("ready", () => {
                       const reason =
                         interaction.fields.getTextInputValue("staff_note");
 
+                      const data = punishmentLogs.get(logId);
+
+                      if (!data) {
+                        return interaction.reply({
+                          content: "❌ Modlog data not found",
+                          ephemeral: true
+                        });
+                      }
+
                       const messages =
                         await interaction.channel.messages.fetch({ limit: 10 });
 
@@ -7775,6 +7782,19 @@ client.on("ready", () => {
                         });
                       }
 
+                      if (!Array.isArray(data.notes)) {
+                        data.notes = [];
+                      }
+
+                      data.notes.push({
+                        by: interaction.user.id,
+                        note: reason,
+                        time: Date.now()
+                      });
+
+                      punishmentLogs.set(logId, data);
+                      saveData();
+
                       const embed =
                         EmbedBuilder.from(targetMessage.embeds[0]);
 
@@ -7788,8 +7808,49 @@ client.on("ready", () => {
                         components: targetMessage.components
                       });
 
+                      if (data.moderator && data.moderator !== interaction.user.id) {
+                        const notePingEmbed = new EmbedBuilder()
+                          .setTitle("📝 Note Added To Your Modlog")
+                          .setColor(0xffcc00)
+                          .setDescription(
+                            `<@${data.moderator}>, a note was added to your submitted modlog.\n\n` +
+                            `Please check the note and update/fix the case if needed.`
+                          )
+                          .addFields(
+                            {
+                              name: "🆔 Case",
+                              value: data.caseId ? `#${data.caseId}` : logId,
+                              inline: true
+                            },
+                            {
+                              name: "👤 Note Added By",
+                              value: `<@${interaction.user.id}>`,
+                              inline: true
+                            },
+                            {
+                              name: "📝 Note",
+                              value: reason.slice(0, 1000),
+                              inline: false
+                            },
+                            {
+                              name: "🔗 Modlog",
+                              value: `[Jump to Modlog](${targetMessage.url})`,
+                              inline: false
+                            }
+                          )
+                          .setTimestamp();
+
+                        await interaction.channel.send({
+                          content: `<@${data.moderator}>`,
+                          embeds: [notePingEmbed],
+                          allowedMentions: {
+                            users: [data.moderator]
+                          }
+                        }).catch(() => {});
+                      }
+
                       return interaction.reply({
-                        content: "✅ Note added",
+                        content: "✅ Note added and submitter notified",
                         ephemeral: true
                       });
                     }
