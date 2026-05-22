@@ -518,6 +518,60 @@ function buildHelpEmbed(level) {
   }
 
   function buildHelpMenu(level) {
+    function buildLevel4DmHelpEmbed(level) {
+      return new EmbedBuilder()
+        .setTitle("Lunar")
+        .setColor(0x2b2d31)
+        .setDescription(
+          "**Level 4 Command Menu**\n\n" +
+          "• Prefix for this server is `.`\n" +
+          "• Available commands: **80+**\n" +
+          `• Your access level: **${level}**\n\n` +
+          "━━━━━━━━━━━━━━━━━━━━"
+        )
+        .addFields(
+          {
+            name: "__Giveaway Commands__",
+            value:
+              "`/giveaway create` `/giveaway edit` `/giveaway removeuser`\n" +
+              "`.gstart` `.gend` `.greroll` `.gpause` `.gresume`\n" +
+              "`.gblacklist` `.gunblacklist` `.gblacklists` `.gfix` `.greq`",
+            inline: false
+          },
+          {
+            name: "__Moderation Commands__",
+            value:
+              "`/modlog` `/cases` `/strike`\n" +
+              "`.modlog` `.modlogs` `.case` `.strike` `.removestrike` `.strikes` `.clearstrikes`",
+            inline: false
+          },
+          {
+            name: "__Staff Commands__",
+            value:
+              "`/staff profile` `/staff rate` `/staff weeklyreport` `/staff resetmonth`\n" +
+              "`.staffstats` `.stafflb` `.motm` `.addpoints`",
+            inline: false
+          },
+          {
+            name: "__Utility Commands__",
+            value:
+              "`/help` `/health` `/profile`\n" +
+              "`.help` `.test` `.messages` `.messagelb` `.addmessages` `.removemessages` `.setmessages`",
+            inline: false
+          },
+          {
+            name: "__Security & Admin__",
+            value:
+              "Anti bot add, anti role delete, anti channel delete, anti everyone ping\n" +
+              "Role guard, giveaway cooldown/ban guard, protected ping system",
+            inline: false
+          }
+        )
+        .setFooter({
+          text: "Lunar Level 4 Help"
+        })
+        .setTimestamp();
+    }
     const options = [
       {
         label: "Giveaways",
@@ -2240,13 +2294,14 @@ client.on("ready", () => {
                   const embed = buildHelpEmbed(level);
 
                   if (level >= 4) {
+                    const dmEmbed = buildLevel4DmHelpEmbed(level);
+
                     await message.author.send({
-                      embeds: [embed],
-                      components: [buildHelpActionRow()]
+                      embeds: [dmEmbed]
                     }).catch(() => null);
 
                     return message.reply({
-                      content: "✅ Help menu sent to your DM.",
+                      content: "✅ Level 4 help menu sent to your DM.",
                       allowedMentions: { repliedUser: false }
                     });
                   }
