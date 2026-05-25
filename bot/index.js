@@ -11,6 +11,11 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
               const staffPoints = new Map();
   const staffRatings = new Map();
   const giveawayBlacklist = new Map();
+const appealLogs = new Map();
+const staffActivity = new Map();
+const staffInactivityNotices = new Map();
+let appealCounter = 0;
+let inactivityCounter = 0;
 
               // Prevent duplicate instance
               if (global.__bot_started) {
@@ -135,7 +140,12 @@ let lastWeeklyReportKey = null;
                   fixedWinners: Object.fromEntries(fixedWinners),
                   messageStats: Object.fromEntries(messageStats),
                   caseCounter,
-                  lastWeeklyReportKey
+                  lastWeeklyReportKey,
+                  appealLogs: Object.fromEntries(appealLogs),
+                  staffActivity: Object.fromEntries(staffActivity),
+                  staffInactivityNotices: Object.fromEntries(staffInactivityNotices),
+                  appealCounter,
+                  inactivityCounter
                 };
 
                 fs.writeFileSync(
@@ -241,6 +251,29 @@ if (data.messageStats) {
 if (data.lastWeeklyReportKey) {
   lastWeeklyReportKey = data.lastWeeklyReportKey;
 }
+                if (data.appealLogs) {
+                  appealLogs.clear();
+                  for (const key in data.appealLogs) {
+                    appealLogs.set(key, data.appealLogs[key]);
+                  }
+                }
+
+                if (data.staffActivity) {
+                  staffActivity.clear();
+                  for (const key in data.staffActivity) {
+                    staffActivity.set(key, data.staffActivity[key]);
+                  }
+                }
+
+                if (data.staffInactivityNotices) {
+                  staffInactivityNotices.clear();
+                  for (const key in data.staffInactivityNotices) {
+                    staffInactivityNotices.set(key, data.staffInactivityNotices[key]);
+                  }
+                }
+
+                appealCounter = data.appealCounter || 0;
+                inactivityCounter = data.inactivityCounter || 0;
 }
 
                 loadData();
@@ -884,7 +917,13 @@ function buildHelpActionRow() {
                   data.total += 1;
                   data.monthly += 1;
                 }
-
+                if (["modlog", "ticket", "giveaway"].includes(type)) {
+                  const activity = staffActivity.get(userId) || {};
+                  activity.lastAny = Date.now();
+                  activity[`last${type.charAt(0).toUpperCase() + type.slice(1)}`] = Date.now();
+                  staffActivity.set(userId, activity);
+                }
+                
                 staffPoints.set(userId, data);
 
                 saveData();
@@ -1250,6 +1289,71 @@ async function checkWeeklyStaffReport() {
   lastWeeklyReportKey = reportKey;
   saveData();
 }
+
+async function checkInactiveStaff() {
+  const guild = client.guilds.cache.first();
+  if (!guild) return;
+
+  await guild.members.fetch().catch(() => null);
+
+  const logChannel =
+    guild.channels.cache.get(CHANNELS.botLogs) ||
+    await guild.channels.fetch(CHANNELS.botLogs).catch(() => null);
+
+  if (!logChannel) return;
+
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+
+  const staffMembers = guild.members.cache.filter(member =>
+    member.roles.cache.has(ROLES.trial) ||
+    member.roles.cache.has(ROLES.mod) ||
+    member.roles.cache.has(ROLES.headmod)
+  );
+
+  for (const member of staffMembers.values()) {
+    const leave = staffInactivityNotices.get(member.id);
+
+    if (leave && leave.status === "Approved" && leave.until > now) {
+      continue;
+    }
+
+    const activity = staffActivity.get(member.id) || {};
+    const lastAny = activity.lastAny || 0;
+
+    if (now - lastAny < oneDay) continue;
+
+    if (activity.lastReminder && now - activity.lastReminder < oneDay) continue;
+
+    activity.lastReminder = now;
+    staffActivity.set(member.id, activity);
+    saveData();
+
+    const embed = new EmbedBuilder()
+      .setTitle("⚠️ Staff Inactivity Reminder")
+      .setColor(0xffcc00)
+      .setDescription(`<@${member.id}> has no staff activity in the last **24 hours**.`)
+      .addFields(
+        {
+          name: "Tracked Activity",
+          value: "Modlogs, tickets closed, giveaways hosted",
+          inline: false
+        },
+        {
+          name: "Action",
+          value: "Please become active or submit `/staff inactivity` if you need leave.",
+          inline: false
+        }
+      )
+      .setTimestamp();
+
+    await logChannel.send({
+      content: `<@${member.id}>`,
+      embeds: [embed],
+      allowedMentions: { users: [member.id] }
+    }).catch(() => {});
+  }
+}
 // READY
 client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -1270,6 +1374,8 @@ client.on("ready", () => {
   rescheduleActiveGiveaways();
   checkWeeklyStaffReport();
   setInterval(checkWeeklyStaffReport, 60 * 1000);
+  checkInactiveStaff();
+  setInterval(checkInactiveStaff, 60 * 60 * 1000);
 });
 
                 // 🔄 AUTO RESET MESSAGE STATS
@@ -5177,6 +5283,115 @@ client.on("ready", () => {
                     });
                   }
 
+                  // 🎫 GIVEAWAY BAN APPEAL
+                  if (
+                    interaction.isChatInputCommand() &&
+                    interaction.commandName === "appeal"
+                  ) {
+                    const modal = new ModalBuilder()
+                      .setCustomId("gwyban_appeal")
+                      .setTitle("Giveaway Ban Appeal");
+
+                    const reasonInput = new TextInputBuilder()
+                      .setCustomId("appeal_reason")
+                      .setLabel("Why should your giveaway ban be removed?")
+                      .setStyle(TextInputStyle.Paragraph)
+                      .setRequired(true);
+
+                    const proofInput = new TextInputBuilder()
+                      .setCustomId("appeal_proof")
+                      .setLabel("Proof / extra details")
+                      .setStyle(TextInputStyle.Paragraph)
+                      .setRequired(false);
+
+                    modal.addComponents(
+                      new ActionRowBuilder().addComponents(reasonInput),
+                      new ActionRowBuilder().addComponents(proofInput)
+                    );
+
+                    return interaction.showModal(modal);
+                  }
+
+                  // 💤 STAFF INACTIVITY REQUEST
+                  if (
+                    interaction.isChatInputCommand() &&
+                    interaction.commandName === "staff" &&
+                    interaction.options.getSubcommand() === "inactivity"
+                  ) {
+                    if (!isStaffMember(interaction.member)) {
+                      return interaction.reply({
+                        content: "❌ Staff only.",
+                        ephemeral: true
+                      });
+                    }
+
+                    const days = interaction.options.getInteger("days");
+                    const reason = interaction.options.getString("reason");
+
+                    if (days < 1 || days > 30) {
+                      return interaction.reply({
+                        content: "❌ Days must be between 1 and 30.",
+                        ephemeral: true
+                      });
+                    }
+
+                    inactivityCounter++;
+
+                    const requestId = `${Date.now()}${inactivityCounter}`;
+                    const until = Date.now() + days * 24 * 60 * 60 * 1000;
+
+                    staffInactivityNotices.set(requestId, {
+                      id: requestId,
+                      userId: interaction.user.id,
+                      days,
+                      reason,
+                      until,
+                      status: "Pending",
+                      requestedAt: Date.now()
+                    });
+
+                    saveData();
+
+                    const embed = new EmbedBuilder()
+                      .setTitle("💤 Staff Inactivity Request")
+                      .setColor(0x5865f2)
+                      .addFields(
+                        { name: "👤 Staff", value: `<@${interaction.user.id}>`, inline: true },
+                        { name: "📅 Days", value: `${days}`, inline: true },
+                        { name: "⏰ Until", value: `<t:${Math.floor(until / 1000)}:F>`, inline: false },
+                        { name: "📝 Reason", value: reason.slice(0, 1000), inline: false }
+                      )
+                      .setFooter({ text: `Request ID: ${requestId}` })
+                      .setTimestamp();
+
+                    const row = new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId(`inactive_approve_${requestId}`)
+                        .setLabel("Approve")
+                        .setStyle(ButtonStyle.Success),
+                      new ButtonBuilder()
+                        .setCustomId(`inactive_reject_${requestId}`)
+                        .setLabel("Reject")
+                        .setStyle(ButtonStyle.Danger)
+                    );
+
+                    const logChannel =
+                      interaction.guild.channels.cache.get(CHANNELS.botLogs) ||
+                      await interaction.guild.channels.fetch(CHANNELS.botLogs).catch(() => null);
+
+                    if (logChannel) {
+                      await logChannel.send({
+                        embeds: [embed],
+                        components: [row]
+                      });
+                    }
+
+                    return interaction.reply({
+                      content: "✅ Your inactivity request has been sent for approval.",
+                      ephemeral: true
+                    });
+                  }
+                  
                   // ⭐ STAFF RATING
                   if (
                     interaction.isChatInputCommand() &&
@@ -5989,7 +6204,152 @@ client.on("ready", () => {
                     }
 
 
+                  // 🎫 APPEAL DECISION BUTTONS
+                  if (
+                    interaction.isButton() &&
+                    (
+                      interaction.customId.startsWith("appeal_approve_") ||
+                      interaction.customId.startsWith("appeal_reject_")
+                    )
+                  ) {
+                    if (!isBypass(interaction.member)) {
+                      return interaction.reply({
+                        content: "❌ Admin only.",
+                        ephemeral: true
+                      });
+                    }
 
+                    const parts = interaction.customId.split("_");
+                    const action = parts[1];
+                    const appealId = parts.slice(2).join("_");
+                    const appeal = appealLogs.get(appealId);
+
+                    if (!appeal) {
+                      return interaction.reply({
+                        content: "❌ Appeal data not found.",
+                        ephemeral: true
+                      });
+                    }
+
+                    appeal.status = action === "approve" ? "Approved" : "Rejected";
+                    appeal.reviewedBy = interaction.user.id;
+                    appeal.reviewedAt = Date.now();
+
+                    appealLogs.set(appealId, appeal);
+                    saveData();
+
+                    if (action === "approve") {
+                      const member = await interaction.guild.members.fetch(appeal.userId).catch(() => null);
+                      if (member && member.roles.cache.has(ROLES.gwyBanned)) {
+                        await member.roles.remove(ROLES.gwyBanned).catch(() => {});
+                      }
+                    }
+
+                    const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                      .setColor(action === "approve" ? 0x57f287 : 0xed4245)
+                      .addFields({
+                        name: "📌 Decision",
+                        value: `${action === "approve" ? "✅ Approved" : "❌ Rejected"} by <@${interaction.user.id}>`,
+                        inline: false
+                      });
+
+                    const disabledRow = new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId("appeal_approved_done")
+                        .setLabel("Approved")
+                        .setStyle(ButtonStyle.Success)
+                        .setDisabled(true),
+                      new ButtonBuilder()
+                        .setCustomId("appeal_rejected_done")
+                        .setLabel("Rejected")
+                        .setStyle(ButtonStyle.Danger)
+                        .setDisabled(true)
+                    );
+
+                    await interaction.update({
+                      embeds: [embed],
+                      components: [disabledRow]
+                    });
+
+                    const user = await client.users.fetch(appeal.userId).catch(() => null);
+                    if (user) {
+                      user.send(
+                        `Your giveaway ban appeal was **${appeal.status}** in **${interaction.guild.name}**.`
+                      ).catch(() => {});
+                    }
+
+                    return;
+                  }
+
+                  // 💤 INACTIVITY DECISION BUTTONS
+                  if (
+                    interaction.isButton() &&
+                    (
+                      interaction.customId.startsWith("inactive_approve_") ||
+                      interaction.customId.startsWith("inactive_reject_")
+                    )
+                  ) {
+                    if (!isBypass(interaction.member)) {
+                      return interaction.reply({
+                        content: "❌ Admin only.",
+                        ephemeral: true
+                      });
+                    }
+
+                    const parts = interaction.customId.split("_");
+                    const action = parts[1];
+                    const requestId = parts.slice(2).join("_");
+                    const request = staffInactivityNotices.get(requestId);
+
+                    if (!request) {
+                      return interaction.reply({
+                        content: "❌ Inactivity request not found.",
+                        ephemeral: true
+                      });
+                    }
+
+                    request.status = action === "approve" ? "Approved" : "Rejected";
+                    request.reviewedBy = interaction.user.id;
+                    request.reviewedAt = Date.now();
+
+                    staffInactivityNotices.set(requestId, request);
+                    saveData();
+
+                    const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                      .setColor(action === "approve" ? 0x57f287 : 0xed4245)
+                      .addFields({
+                        name: "📌 Decision",
+                        value: `${action === "approve" ? "✅ Approved" : "❌ Rejected"} by <@${interaction.user.id}>`,
+                        inline: false
+                      });
+
+                    const disabledRow = new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId("inactive_approved_done")
+                        .setLabel("Approved")
+                        .setStyle(ButtonStyle.Success)
+                        .setDisabled(true),
+                      new ButtonBuilder()
+                        .setCustomId("inactive_rejected_done")
+                        .setLabel("Rejected")
+                        .setStyle(ButtonStyle.Danger)
+                        .setDisabled(true)
+                    );
+
+                    await interaction.update({
+                      embeds: [embed],
+                      components: [disabledRow]
+                    });
+
+                    const user = await client.users.fetch(request.userId).catch(() => null);
+                    if (user) {
+                      user.send(
+                        `Your inactivity request was **${request.status}** in **${interaction.guild.name}**.`
+                      ).catch(() => {});
+                    }
+
+                    return;
+                  }
 
                 // 🔥 APPROVE MODLOG
                   if (
@@ -7445,6 +7805,7 @@ client.on("ready", () => {
 
                     // Remove the Confirm/Cancel buttons immediately so they aren't clicked twice
                     await interaction.update({ components: [] }).catch(() => {});
+                    addPoints(interaction.user.id, "ticket");
 
                     // Start the 5-second countdown message
                     await interaction.channel.send({
@@ -7800,10 +8161,69 @@ client.on("ready", () => {
                       components: [row]
                     });
                   }
-
+   
                   // 🔥 REJECT MODAL SUBMIT
                   if (interaction.isModalSubmit()) {
+                    // 🎫 GIVEAWAY BAN APPEAL SUBMIT
+                    if (interaction.customId === "gwyban_appeal") {
+                      appealCounter++;
 
+                      const appealId = `${Date.now()}${appealCounter}`;
+                      const reason = interaction.fields.getTextInputValue("appeal_reason");
+                      const proof = interaction.fields.getTextInputValue("appeal_proof") || "No proof provided.";
+
+                      appealLogs.set(appealId, {
+                        id: appealId,
+                        userId: interaction.user.id,
+                        reason,
+                        proof,
+                        status: "Pending",
+                        submittedAt: Date.now()
+                      });
+
+                      saveData();
+
+                      const embed = new EmbedBuilder()
+                        .setTitle("🎫 Giveaway Ban Appeal")
+                        .setColor(0xffcc00)
+                        .addFields(
+                          { name: "👤 User", value: `<@${interaction.user.id}>`, inline: true },
+                          { name: "📌 Status", value: "Pending Review", inline: true },
+                          { name: "📝 Reason", value: reason.slice(0, 1000), inline: false },
+                          { name: "📎 Proof / Details", value: proof.slice(0, 1000), inline: false }
+                        )
+                        .setFooter({ text: `Appeal ID: ${appealId}` })
+                        .setTimestamp();
+
+                      const row = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                          .setCustomId(`appeal_approve_${appealId}`)
+                          .setLabel("Approve Appeal")
+                          .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                          .setCustomId(`appeal_reject_${appealId}`)
+                          .setLabel("Reject Appeal")
+                          .setStyle(ButtonStyle.Danger)
+                      );
+
+                      const logChannel =
+                        interaction.guild.channels.cache.get(CHANNELS.botLogs) ||
+                        await interaction.guild.channels.fetch(CHANNELS.botLogs).catch(() => null);
+
+                      if (logChannel) {
+                        await logChannel.send({
+                          content: `<@&${ROLES.admin}>`,
+                          embeds: [embed],
+                          components: [row],
+                          allowedMentions: { roles: [ROLES.admin] }
+                        });
+                      }
+
+                      return interaction.reply({
+                        content: "✅ Your giveaway ban appeal has been submitted.",
+                        ephemeral: true
+                      });
+                    }
                     // 📝 NOTE SUBMIT
                     if (interaction.customId.startsWith("note_")) {
 
@@ -8374,6 +8794,7 @@ client.on("ready", () => {
 
                 if (reaction.emoji.name === "✅") {
                   message.reply("✅ Payment verified by staff. Closing ticket...");
+                  addPoints(user.id, "ticket");
 
                   setTimeout(async () => {
                     const channel = message.channel;

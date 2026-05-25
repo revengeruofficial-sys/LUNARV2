@@ -296,6 +296,23 @@ const commands = [
     sub
       .setName("weeklyreport")
       .setDescription("View weekly staff activity report")
+  )
+  .addSubcommand(sub =>
+    sub
+      .setName("inactivity")
+      .setDescription("Request approved inactivity leave")
+      .addIntegerOption(option =>
+        option
+          .setName("days")
+          .setDescription("How many days you will be inactive")
+          .setRequired(true)
+      )
+      .addStringOption(option =>
+        option
+          .setName("reason")
+          .setDescription("Why you will be inactive")
+          .setRequired(true)
+      )
   ),
   new SlashCommandBuilder()
     .setName("cases")
@@ -315,6 +332,9 @@ const commands = [
         .setDescription("Member to view")
         .setRequired(false)
     ),
+  new SlashCommandBuilder()
+  .setName("appeal")
+  .setDescription("Submit a giveaway ban appeal"),
   new SlashCommandBuilder()
     .setName("health")
     .setDescription("Check bot health and configuration"),
