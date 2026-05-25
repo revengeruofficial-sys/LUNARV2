@@ -70,6 +70,8 @@ let inactivityCounter = 0;
                 modLogs: "1506172574189617202",
                 motmAnnouncements: "1422082737241587752",
                 weeklyReports: "1393821587559420004",
+                staffInactivityLogs: "1359644941613268992",
+                appealLogs: "1506172574189617202",
               };
 
             const TRUSTED_BOTS = [
@@ -1297,8 +1299,8 @@ async function checkInactiveStaff() {
   await guild.members.fetch().catch(() => null);
 
   const logChannel =
-    guild.channels.cache.get(CHANNELS.botLogs) ||
-    await guild.channels.fetch(CHANNELS.botLogs).catch(() => null);
+    guild.channels.cache.get(CHANNELS.staffInactivityLogs) ||
+    await guild.channels.fetch(CHANNELS.staffInactivityLogs).catch(() => null);
 
   if (!logChannel) return;
 
@@ -1311,23 +1313,42 @@ async function checkInactiveStaff() {
     member.roles.cache.has(ROLES.headmod)
   );
 
-  for (const member of staffMembers.values()) {
-    const leave = staffInactivityNotices.get(member.id);
+  let changed = false;
 
-    if (leave && leave.status === "Approved" && leave.until > now) {
+  for (const member of staffMembers.values()) {
+    const approvedLeave = [...staffInactivityNotices.values()].find(req =>
+      req.userId === member.id &&
+      req.status === "Approved" &&
+      req.until > now
+    );
+
+    if (approvedLeave) {
       continue;
     }
 
     const activity = staffActivity.get(member.id) || {};
-    const lastAny = activity.lastAny || 0;
 
-    if (now - lastAny < oneDay) continue;
+    // First time setup: old staff data has counts but no timestamp.
+    // So we start tracking from now instead of falsely pinging active staff.
+    if (!activity.lastAny) {
+      activity.lastAny = now;
+      activity.trackingStartedAt = now;
+      staffActivity.set(member.id, activity);
+      changed = true;
+      continue;
+    }
 
-    if (activity.lastReminder && now - activity.lastReminder < oneDay) continue;
+    if (now - activity.lastAny < oneDay) {
+      continue;
+    }
+
+    if (activity.lastReminder && now - activity.lastReminder < oneDay) {
+      continue;
+    }
 
     activity.lastReminder = now;
     staffActivity.set(member.id, activity);
-    saveData();
+    changed = true;
 
     const embed = new EmbedBuilder()
       .setTitle("⚠️ Staff Inactivity Reminder")
@@ -1336,7 +1357,7 @@ async function checkInactiveStaff() {
       .addFields(
         {
           name: "Tracked Activity",
-          value: "Modlogs, tickets closed, giveaways hosted",
+          value: "Modlogs approved/submitted, tickets closed, giveaways hosted",
           inline: false
         },
         {
@@ -1353,6 +1374,8 @@ async function checkInactiveStaff() {
       allowedMentions: { users: [member.id] }
     }).catch(() => {});
   }
+
+  if (changed) saveData();
 }
 // READY
 client.on("ready", () => {
@@ -1374,7 +1397,6 @@ client.on("ready", () => {
   rescheduleActiveGiveaways();
   checkWeeklyStaffReport();
   setInterval(checkWeeklyStaffReport, 60 * 1000);
-  checkInactiveStaff();
   setInterval(checkInactiveStaff, 60 * 60 * 1000);
 });
 
@@ -8207,8 +8229,8 @@ client.on("ready", () => {
                       );
 
                       const logChannel =
-                        interaction.guild.channels.cache.get(CHANNELS.botLogs) ||
-                        await interaction.guild.channels.fetch(CHANNELS.botLogs).catch(() => null);
+                        interaction.guild.channels.cache.get(CHANNELS.appealLogs) ||
+                        await interaction.guild.channels.fetch(CHANNELS.appealLogs).catch(() => null);
 
                       if (logChannel) {
                         await logChannel.send({
