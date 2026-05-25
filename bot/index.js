@@ -70,7 +70,7 @@ let inactivityCounter = 0;
                 modLogs: "1506172574189617202",
                 motmAnnouncements: "1422082737241587752",
                 weeklyReports: "1393821587559420004",
-                staffInactivityLogs: "1359644941613268992",
+                staffInactivityLogs: "1386717650511466618",
                 appealLogs: "1506172574189617202",
               };
 
