@@ -5316,19 +5316,19 @@ client.on("ready", () => {
 
                     const reasonInput = new TextInputBuilder()
                       .setCustomId("appeal_reason")
-                      .setLabel("Why should your giveaway ban be removed?")
+                      .setLabel("Why should this ban be removed?")
                       .setStyle(TextInputStyle.Paragraph)
                       .setRequired(true);
 
-                    const proofInput = new TextInputBuilder()
-                      .setCustomId("appeal_proof")
-                      .setLabel("Proof / extra details")
+                    const banReasonInput = new TextInputBuilder()
+                      .setCustomId("appeal_ban_reason")
+                      .setLabel("Why did you get banned/blacklisted?")
                       .setStyle(TextInputStyle.Paragraph)
-                      .setRequired(false);
+                      .setRequired(true);
 
                     modal.addComponents(
                       new ActionRowBuilder().addComponents(reasonInput),
-                      new ActionRowBuilder().addComponents(proofInput)
+                      new ActionRowBuilder().addComponents(banReasonInput)
                     );
 
                     return interaction.showModal(modal);
@@ -6234,9 +6234,15 @@ client.on("ready", () => {
                       interaction.customId.startsWith("appeal_reject_")
                     )
                   ) {
-                    if (!isBypass(interaction.member)) {
+                    const canHandleAppeal =
+                      interaction.member.roles.cache.has(ROLES.trial) ||
+                      interaction.member.roles.cache.has(ROLES.mod) ||
+                      interaction.member.roles.cache.has(ROLES.headmod) ||
+                      isBypass(interaction.member);
+
+                    if (!canHandleAppeal) {
                       return interaction.reply({
-                        content: "❌ Admin only.",
+                        content: "❌ Staff only.",
                         ephemeral: true
                       });
                     }
@@ -6262,9 +6268,16 @@ client.on("ready", () => {
 
                     if (action === "approve") {
                       const member = await interaction.guild.members.fetch(appeal.userId).catch(() => null);
+
                       if (member && member.roles.cache.has(ROLES.gwyBanned)) {
                         await member.roles.remove(ROLES.gwyBanned).catch(() => {});
                       }
+
+                      if (giveawayBlacklist.has(appeal.userId)) {
+                        giveawayBlacklist.delete(appeal.userId);
+                      }
+
+                      saveData();
                     }
 
                     const embed = EmbedBuilder.from(interaction.message.embeds[0])
@@ -6295,9 +6308,15 @@ client.on("ready", () => {
 
                     const user = await client.users.fetch(appeal.userId).catch(() => null);
                     if (user) {
-                      user.send(
-                        `Your giveaway ban appeal was **${appeal.status}** in **${interaction.guild.name}**.`
-                      ).catch(() => {});
+                      if (appeal.status === "Approved") {
+                        user.send(
+                          `✅ Your giveaway ban appeal was **approved** in **${interaction.guild.name}**.\nYour giveaway ban/blacklist has been removed. You can now join giveaways again.`
+                        ).catch(() => {});
+                      } else {
+                        user.send(
+                          `❌ Your giveaway ban appeal was **rejected** in **${interaction.guild.name}**.`
+                        ).catch(() => {});
+                      }
                     }
 
                     return;
@@ -8192,13 +8211,13 @@ client.on("ready", () => {
 
                       const appealId = `${Date.now()}${appealCounter}`;
                       const reason = interaction.fields.getTextInputValue("appeal_reason");
-                      const proof = interaction.fields.getTextInputValue("appeal_proof") || "No proof provided.";
+                      const banReason = interaction.fields.getTextInputValue("appeal_ban_reason");
 
                       appealLogs.set(appealId, {
                         id: appealId,
                         userId: interaction.user.id,
                         reason,
-                        proof,
+                        banReason,
                         status: "Pending",
                         submittedAt: Date.now()
                       });
@@ -8211,8 +8230,8 @@ client.on("ready", () => {
                         .addFields(
                           { name: "👤 User", value: `<@${interaction.user.id}>`, inline: true },
                           { name: "📌 Status", value: "Pending Review", inline: true },
-                          { name: "📝 Reason", value: reason.slice(0, 1000), inline: false },
-                          { name: "📎 Proof / Details", value: proof.slice(0, 1000), inline: false }
+                          { name: "📝 Why It Should Be Removed", value: reason.slice(0, 1000), inline: false },
+                          { name: "🚫 Why Ban Was Given", value: banReason.slice(0, 1000), inline: false }
                         )
                         .setFooter({ text: `Appeal ID: ${appealId}` })
                         .setTimestamp();
@@ -8234,10 +8253,9 @@ client.on("ready", () => {
 
                       if (logChannel) {
                         await logChannel.send({
-                          content: `<@&${ROLES.admin}>`,
                           embeds: [embed],
                           components: [row],
-                          allowedMentions: { roles: [ROLES.admin] }
+                          allowedMentions: { parse: [] }
                         });
                       }
 
