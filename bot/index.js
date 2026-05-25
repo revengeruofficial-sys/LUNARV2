@@ -70,7 +70,7 @@ let inactivityCounter = 0;
                 modLogs: "1506172574189617202",
                 motmAnnouncements: "1422082737241587752",
                 weeklyReports: "1393821587559420004",
-                staffInactivityLogs: "1386717650511466618",
+                staffInactivityLogs: "1381173430472282163",
                 appealLogs: "1506172574189617202",
               };
 
@@ -5398,8 +5398,8 @@ client.on("ready", () => {
                     );
 
                     const logChannel =
-                      interaction.guild.channels.cache.get(CHANNELS.botLogs) ||
-                      await interaction.guild.channels.fetch(CHANNELS.botLogs).catch(() => null);
+                      interaction.guild.channels.cache.get(CHANNELS.staffInactivityLogs) ||
+                      await interaction.guild.channels.fetch(CHANNELS.staffInactivityLogs).catch(() => null);
 
                     if (logChannel) {
                       await logChannel.send({
