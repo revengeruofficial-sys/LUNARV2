@@ -14,6 +14,7 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
 const appealLogs = new Map();
 const staffActivity = new Map();
 const staffInactivityNotices = new Map();
+const afkUsers = new Map();
 let appealCounter = 0;
 let inactivityCounter = 0;
 
@@ -147,7 +148,8 @@ let lastWeeklyReportKey = null;
                   staffActivity: Object.fromEntries(staffActivity),
                   staffInactivityNotices: Object.fromEntries(staffInactivityNotices),
                   appealCounter,
-                  inactivityCounter
+                  inactivityCounter,
+                  afkUsers: Object.fromEntries(afkUsers)
                 };
 
                 fs.writeFileSync(
@@ -276,6 +278,12 @@ if (data.lastWeeklyReportKey) {
 
                 appealCounter = data.appealCounter || 0;
                 inactivityCounter = data.inactivityCounter || 0;
+                if (data.afkUsers) {
+                  afkUsers.clear();
+                  for (const key in data.afkUsers) {
+                    afkUsers.set(key, data.afkUsers[key]);
+                  }
+                }
 }
 
                 loadData();
@@ -347,6 +355,46 @@ if (data.lastWeeklyReportKey) {
         }
       }).catch(() => null);
     }
+async function sendStaffStrikeWarning(guild, userId, strikeId, reason, givenBy, currentStrikes) {
+  const user = await client.users.fetch(userId).catch(() => null);
+  if (!user) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("⚠️ Staff Strike Warning")
+    .setColor(0xff3b3b)
+    .setDescription(`You received a staff strike in **${guild.name}**.`)
+    .addFields(
+      {
+        name: "Strike",
+        value: `#${strikeId}`,
+        inline: true
+      },
+      {
+        name: "Total Active Strikes",
+        value: `${currentStrikes.length}`,
+        inline: true
+      },
+      {
+        name: "Given By",
+        value: `<@${givenBy}>`,
+        inline: true
+      },
+      {
+        name: "Reason",
+        value: reason.slice(0, 1000),
+        inline: false
+      },
+      {
+        name: "Reminder",
+        value: "Please improve your activity/behavior. If this was a mistake, contact an admin.",
+        inline: false
+      }
+    )
+    .setFooter({ text: "Lunar Staff System" })
+    .setTimestamp();
+
+  await user.send({ embeds: [embed] }).catch(() => {});
+}
 
               function getTodayKey() {
                 return new Intl.DateTimeFormat("en-CA", {
@@ -1373,6 +1421,31 @@ async function checkInactiveStaff() {
       embeds: [embed],
       allowedMentions: { users: [member.id] }
     }).catch(() => {});
+    const dmEmbed = new EmbedBuilder()
+      .setTitle("⚠️ Staff Activity Reminder")
+      .setColor(0xffcc00)
+      .setDescription(
+        `Hey ${member.user.username}, you have been marked inactive in **${guild.name}**.\n\n` +
+        "Please get back active with staff work when possible."
+      )
+      .addFields(
+        {
+          name: "Tracked Activity",
+          value: "Modlogs approved/submitted, tickets closed, giveaways hosted",
+          inline: false
+        },
+        {
+          name: "Need Leave?",
+          value: "Use `/staff inactivity` in the server if you need approved inactive time.",
+          inline: false
+        }
+      )
+      .setFooter({ text: "Lunar Staff System" })
+      .setTimestamp();
+
+    await member.send({
+      embeds: [dmEmbed]
+    }).catch(() => {});
   }
 
   if (changed) saveData();
@@ -2178,6 +2251,15 @@ client.on("ready", () => {
         client.user.id
       );
 
+      await sendStaffStrikeWarning(
+        newMember.guild,
+        executor.id,
+        strikeId,
+        "Role abuse prevented",
+        client.user.id,
+        current
+      );
+
       const roleList = abusedRoles.map(role => `<@&${role.id}>`).join(", ");
 
       const embed = new EmbedBuilder()
@@ -2372,6 +2454,55 @@ client.on("ready", () => {
 
                   return;
                 }
+                if (afkUsers.has(message.author.id)) {
+                  const afkData = afkUsers.get(message.author.id);
+                  afkUsers.delete(message.author.id);
+                  saveData();
+
+                  const afkBackEmbed = new EmbedBuilder()
+                    .setTitle("✅ Welcome Back")
+                    .setColor(0x57f287)
+                    .setDescription(`Welcome back <@${message.author.id}>. I removed your AFK status.`)
+                    .addFields({
+                      name: "You were AFK for",
+                      value: `<t:${Math.floor(afkData.since / 1000)}:R>`,
+                      inline: true
+                    })
+                    .setTimestamp();
+
+                  await message.reply({
+                    embeds: [afkBackEmbed],
+                    allowedMentions: { repliedUser: false, users: [] }
+                  }).catch(() => {});
+                }
+
+                const afkMentions = message.mentions.users.filter(user =>
+                  afkUsers.has(user.id) &&
+                  user.id !== message.author.id &&
+                  (
+                    message.content.includes(`<@${user.id}>`) ||
+                    message.content.includes(`<@!${user.id}>`)
+                  )
+                );
+
+                if (afkMentions.size > 0) {
+                  const lines = afkMentions.map(user => {
+                    const data = afkUsers.get(user.id);
+                    return `<@${user.id}> is AFK: **${data.reason}**\nSince: <t:${Math.floor(data.since / 1000)}:R>`;
+                  }).join("\n\n");
+
+                  const afkEmbed = new EmbedBuilder()
+                    .setTitle("💤 AFK Notice")
+                    .setColor(0x5865f2)
+                    .setDescription(lines)
+                    .setFooter({ text: "Lunar AFK System" })
+                    .setTimestamp();
+
+                  await message.reply({
+                    embeds: [afkEmbed],
+                    allowedMentions: { repliedUser: false, parse: [] }
+                  }).catch(() => {});
+                }
                 if (!message.content.startsWith(PREFIX)) return;
                 // 🔐 GLOBAL PREFIX COMMAND PERMISSION GUARD
                 const commandName = message.content
@@ -2380,7 +2511,7 @@ client.on("ready", () => {
                   .split(/\s+/)[0]
                   .toLowerCase();
 
-                const publicPrefixCommands = ["help", "messages", "messagelb"];
+                const publicPrefixCommands = ["help", "messages", "messagelb", "afk"];
 
                 if (!publicPrefixCommands.includes(commandName)) {
                   const level = getUserLevel(message.member);
@@ -2413,10 +2544,39 @@ client.on("ready", () => {
                 const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
                 const cmd = args.shift().toLowerCase();
 
-                if (level === 0 && !["help", "messages", "messagelb"].includes(cmd)) {
+                if (level === 0 && !["help", "messages", "messagelb", "afk"].includes(cmd)) {
                   return;
                 }
 
+                // 💤 AFK
+                if (cmd === "afk") {
+                  const reason = args.join(" ") || "AFK";
+
+                  afkUsers.set(message.author.id, {
+                    reason,
+                    since: Date.now()
+                  });
+
+                  saveData();
+
+                  const embed = new EmbedBuilder()
+                    .setTitle("💤 AFK Enabled")
+                    .setColor(0x5865f2)
+                    .setDescription(`<@${message.author.id}> is now AFK.`)
+                    .addFields({
+                      name: "Reason",
+                      value: reason.slice(0, 1000),
+                      inline: false
+                    })
+                    .setFooter({ text: "Send any message to remove AFK" })
+                    .setTimestamp();
+
+                  return message.reply({
+                    embeds: [embed],
+                    allowedMentions: { repliedUser: false, users: [] }
+                  });
+                }
+                
                 // HELP
                 if (cmd === "help") {
                   const embed = buildHelpEmbed(level);
@@ -3170,6 +3330,14 @@ client.on("ready", () => {
                     current,
                     reason,
                     message.author.id
+                  );
+                  await sendStaffStrikeWarning(
+                    message.guild,
+                    user.id,
+                    strikeId,
+                    reason,
+                    message.author.id,
+                    current
                   );
 
                   message.channel.send(
@@ -4894,6 +5062,14 @@ client.on("ready", () => {
                       current,
                       reason,
                       interaction.user.id
+                    );
+                    await sendStaffStrikeWarning(
+                      interaction.guild,
+                      user.id,
+                      strikeId,
+                      reason,
+                      interaction.user.id,
+                      current
                     );
 
                     const embed = new EmbedBuilder()
