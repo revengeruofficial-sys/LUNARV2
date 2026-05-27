@@ -58,6 +58,8 @@ let inactivityCounter = 0;
                 muted: "1413142263298658355",
                 booster: "1384106733374410843",
                 motm: "1363682773038010468",
+                eventPing: "1379722626074677308",
+                eventHoster: "1323678995077795941",
               };
 
               // CHANNELS
@@ -124,6 +126,7 @@ let inactivityCounter = 0;
               const banTracker = new Map();
               const giveawayDrafts = new Map();
               const messageStats = new Map();
+              const eventAnnouncements = new Map();
 
               let caseCounter = 1000;
 let lastWeeklyReportKey = null;
@@ -149,7 +152,8 @@ let lastWeeklyReportKey = null;
                   staffInactivityNotices: Object.fromEntries(staffInactivityNotices),
                   appealCounter,
                   inactivityCounter,
-                  afkUsers: Object.fromEntries(afkUsers)
+                  afkUsers: Object.fromEntries(afkUsers),
+                  eventAnnouncements: Object.fromEntries(eventAnnouncements)
                 };
 
                 fs.writeFileSync(
@@ -284,6 +288,12 @@ if (data.lastWeeklyReportKey) {
                     afkUsers.set(key, data.afkUsers[key]);
                   }
                 }
+                if (data.eventAnnouncements) {
+                  eventAnnouncements.clear();
+                  for (const key in data.eventAnnouncements) {
+                    eventAnnouncements.set(key, data.eventAnnouncements[key]);
+                  }
+                }
 }
 
                 loadData();
@@ -395,7 +405,156 @@ async function sendStaffStrikeWarning(guild, userId, strikeId, reason, givenBy, 
 
   await user.send({ embeds: [embed] }).catch(() => {});
 }
+              function getBloxEventInfo(type) {
+                const events = {
+                  levi_hydra: {
+                    title: "🌊 Leviathan Hunt • Hydra",
+                    name: "Leviathan Hunt",
+                    location: "Hydra Route",
+                    color: 0x00aaff,
+                    rules: ["Be Marine", "No scripters or exploiters", "Do not start Leviathan without host permission", "Cooperate with host"]
+                  },
+                  levi_tiki: {
+                    title: "🌊 Leviathan Hunt • Tiki",
+                    name: "Leviathan Hunt",
+                    location: "Tiki Route",
+                    color: 0x00aaff,
+                    rules: ["Be Marine", "No scripters or exploiters", "Do not start Leviathan without host permission", "Follow host instructions"]
+                  },
+                  mirage: {
+                    title: "🏝️ Mirage Hunt",
+                    name: "Mirage Hunt",
+                    location: "Third Sea",
+                    color: 0xffd166,
+                    rules: ["Be Marine", "No scripters or exploiters", "Stay with the group", "Cooperate with host"]
+                  },
+                  sea_beast: {
+                    title: "🐉 Sea Beast Event",
+                    name: "Sea Beast",
+                    location: "Sea Area",
+                    color: 0x57f287,
+                    rules: ["Be Marine", "No scripters or exploiters", "Stay near host", "Cooperate with host"]
+                  },
+                  fools_gold: {
+                    title: "🏆 Fools Gold Event",
+                    name: "Fools Gold",
+                    location: "Sea Event Route",
+                    color: 0xffcc00,
+                    rules: ["Be Marine", "No scripters or exploiters", "Follow host route", "Do not waste event spawns"]
+                  },
+                  indra: {
+                    title: "⚔️ Indra Spawn",
+                    name: "Indra",
+                    location: "Third Sea",
+                    color: 0xff3b3b,
+                    rules: ["No scripters or exploiters", "Do not start without host permission", "Wait for host instructions"]
+                  },
+                  dough_king: {
+                    title: "🍩 Dough King",
+                    name: "Dough King",
+                    location: "Cake Land",
+                    color: 0xff8fab,
+                    rules: ["No scripters or exploiters", "Do not start without host permission", "Follow host instructions"]
+                  },
+                  prehistoric: {
+                    title: "🦴 Prehistoric Island",
+                    name: "Prehistoric Island",
+                    location: "Sea Event Route",
+                    color: 0xc77dff,
+                    rules: ["Be Marine", "No scripters or exploiters", "Do not start Prehistoric Island without host permission", "Wait before interacting"]
+                  },
+                  kitsune: {
+                    title: "🦊 Kitsune Shrine",
+                    name: "Kitsune Shrine",
+                    location: "Kitsune Event Area",
+                    color: 0xf15bb5,
+                    rules: ["No scripters or exploiters", "Stay with host", "Do not start without host permission"]
+                  },
+                  cd_removal: {
+                    title: "♻️ CD Removal",
+                    name: "Cooldown Removal",
+                    location: "Sea Events Route",
+                    color: 0x2dd4bf,
+                    rules: ["Be Marine", "No scripters or exploiters", "We will do 20+ sea events for spy cooldown removal", "Stay active and follow host route"]
+                  },
+                  custom: {
+                    title: "🎮 Blox Fruits Event",
+                    name: "Custom Event",
+                    location: "Roblox Private Server",
+                    color: 0x5865f2,
+                    rules: ["Be Marine if required", "No scripters or exploiters", "Do not start anything without host permission", "Cooperate with host"]
+                  }
+                };
 
+                return events[type] || events.custom;
+              }
+
+              function canHostEvent(member) {
+                if (!member) return false;
+
+                return (
+                  member.roles.cache.has(ROLES.eventHoster) ||
+                  member.roles.cache.has(ROLES.trial) ||
+                  member.roles.cache.has(ROLES.mod) ||
+                  member.roles.cache.has(ROLES.headmod) ||
+                  member.roles.cache.has(ROLES.admin) ||
+                  member.roles.cache.has(ROLES.owner) ||
+                  member.roles.cache.has(ROLES.ultimate)
+                );
+              }
+
+              function canManageEvent(member, eventData) {
+                if (!member || !eventData) return false;
+                return member.id === eventData.hostId || canHostEvent(member);
+              }
+
+              function buildEventEmbed(eventData) {
+                const info = getBloxEventInfo(eventData.type);
+
+                return new EmbedBuilder()
+                  .setTitle(eventData.status === "ended" ? `🏁 ${info.title} Ended` : info.title)
+                  .setColor(eventData.status === "ended" ? 0xff3b3b : info.color)
+                  .addFields(
+                    { name: "🎮 Event", value: info.name, inline: true },
+                    { name: "📍 Location", value: info.location, inline: true },
+                    { name: "📌 Status", value: eventData.status === "ended" ? "🔴 Ended" : "🟢 Active", inline: true },
+                    { name: "👑 Host", value: `<@${eventData.hostId}>`, inline: true },
+                    { name: "⏰ Time", value: eventData.time, inline: true },
+                    { name: "👥 Slots", value: eventData.slots || "Not specified", inline: true }
+                  )
+                  .setFooter({ text: "Lunar Blox Fruits Event System" })
+                  .setTimestamp();
+              }
+
+              function buildEventComponents(eventData) {
+                if (eventData.status === "ended") {
+                  return [
+                    new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId("event_closed")
+                        .setLabel("Event Ended")
+                        .setEmoji("🏁")
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true)
+                    )
+                  ];
+                }
+
+                return [
+                  new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                      .setLabel("Join Roblox Server")
+                      .setEmoji("🔗")
+                      .setStyle(ButtonStyle.Link)
+                      .setURL(eventData.serverLink),
+                    new ButtonBuilder()
+                      .setCustomId(`event_rules_${eventData.messageId}`)
+                      .setLabel("Rules")
+                      .setEmoji("📜")
+                      .setStyle(ButtonStyle.Secondary)
+                  )
+                ];
+              }
               function getTodayKey() {
                 return new Intl.DateTimeFormat("en-CA", {
                   timeZone: "Asia/Kolkata",
@@ -2430,7 +2589,7 @@ client.on("ready", () => {
                     .setTitle("🔕 Please Avoid Pinging")
                     .setColor(0xffcc00)
                     .setDescription(
-                      "Please do not ping Him members unless it is truly required."
+                      "Please do not ping Him unless it is truly required."
                     )
                     .addFields(
                       {
@@ -4662,11 +4821,14 @@ client.on("ready", () => {
                       commandName === "staff" &&
                       subcommandName === "rate";
 
+                    const isEventCommand =
+                      commandName === "event";
                     const isPublicCommand =
                       commandName === "help" ||
                       commandName === "profile" ||
                       isPublicStaffProfile ||
-                      isPublicStaffRate;
+                      isPublicStaffRate ||
+                      isEventCommand;
 
                     const level = getUserLevel(interaction.member);
 
@@ -4696,6 +4858,180 @@ client.on("ready", () => {
                         ephemeral: true
                       });
                     }
+                  }
+                  // 🎮 BLOX FRUITS EVENT SYSTEM
+                  if (
+                    interaction.isChatInputCommand() &&
+                    interaction.commandName === "event"
+                  ) {
+                    const sub = interaction.options.getSubcommand();
+
+                    if (!canHostEvent(interaction.member)) {
+                      return interaction.reply({
+                        content: "❌ Only event hosters or staff can use event commands.",
+                        ephemeral: true
+                      });
+                    }
+
+                    if (sub === "announce") {
+                      await interaction.deferReply({ ephemeral: true });
+
+                      const type = interaction.options.getString("type");
+                      const serverLink = interaction.options.getString("private_server");
+                      const time = interaction.options.getString("time");
+                      const host = interaction.options.getUser("host") || interaction.user;
+                      const slots = interaction.options.getString("slots") || "Not specified";
+                      const targetChannel = interaction.options.getChannel("channel") || interaction.channel;
+
+                      const eventData = {
+                        type,
+                        serverLink,
+                        time,
+                        hostId: host.id,
+                        slots,
+                        status: "active",
+                        createdAt: Date.now(),
+                        createdBy: interaction.user.id,
+                        channelId: targetChannel.id,
+                        messageId: null
+                      };
+
+                      const msg = await targetChannel.send({
+                        content: `<@&${ROLES.eventPing}>`,
+                        embeds: [buildEventEmbed(eventData)],
+                        allowedMentions: { roles: [ROLES.eventPing] }
+                      });
+
+                      eventData.messageId = msg.id;
+                      eventAnnouncements.set(msg.id, eventData);
+                      saveData();
+
+                      await msg.edit({
+                        embeds: [buildEventEmbed(eventData)],
+                        components: buildEventComponents(eventData)
+                      });
+
+                      return interaction.editReply({
+                        content: `✅ Event announced in ${targetChannel}.`
+                      });
+                    }
+
+                    if (sub === "edit") {
+                      const messageId = interaction.options.getString("messageid");
+                      const eventData = eventAnnouncements.get(messageId);
+
+                      if (!eventData) {
+                        return interaction.reply({
+                          content: "❌ Event not found.",
+                          ephemeral: true
+                        });
+                      }
+
+                      if (!canManageEvent(interaction.member, eventData)) {
+                        return interaction.reply({
+                          content: "❌ Only the event host or staff can edit this event.",
+                          ephemeral: true
+                        });
+                      }
+
+                      const newTime = interaction.options.getString("time");
+                      const newServerLink = interaction.options.getString("private_server");
+                      const newSlots = interaction.options.getString("slots");
+                      const newHost = interaction.options.getUser("host");
+
+                      if (newTime) eventData.time = newTime;
+                      if (newServerLink) eventData.serverLink = newServerLink;
+                      if (newSlots) eventData.slots = newSlots;
+                      if (newHost) eventData.hostId = newHost.id;
+
+                      eventAnnouncements.set(messageId, eventData);
+                      saveData();
+
+                      const channel = await interaction.guild.channels.fetch(eventData.channelId).catch(() => null);
+                      const msg = channel ? await channel.messages.fetch(messageId).catch(() => null) : null;
+
+                      if (msg) {
+                        await msg.edit({
+                          embeds: [buildEventEmbed(eventData)],
+                          components: buildEventComponents(eventData)
+                        });
+                      }
+
+                      return interaction.reply({
+                        content: "✅ Event updated.",
+                        ephemeral: true
+                      });
+                    }
+
+                    if (sub === "end") {
+                      const messageId = interaction.options.getString("messageid");
+                      const eventData = eventAnnouncements.get(messageId);
+
+                      if (!eventData) {
+                        return interaction.reply({
+                          content: "❌ Event not found.",
+                          ephemeral: true
+                        });
+                      }
+
+                      if (!canManageEvent(interaction.member, eventData)) {
+                        return interaction.reply({
+                          content: "❌ Only the event host or staff can end this event.",
+                          ephemeral: true
+                        });
+                      }
+
+                      eventData.status = "ended";
+                      eventData.endedAt = Date.now();
+                      eventData.endedBy = interaction.user.id;
+
+                      eventAnnouncements.set(messageId, eventData);
+                      saveData();
+
+                      const channel = await interaction.guild.channels.fetch(eventData.channelId).catch(() => null);
+                      const msg = channel ? await channel.messages.fetch(messageId).catch(() => null) : null;
+
+                      if (msg) {
+                        await msg.edit({
+                          embeds: [buildEventEmbed(eventData)],
+                          components: buildEventComponents(eventData)
+                        });
+                      }
+
+                      return interaction.reply({
+                        content: "✅ Event ended.",
+                        ephemeral: true
+                      });
+                    }
+                  }
+                  // 📜 EVENT RULES BUTTON
+                  if (
+                    interaction.isButton() &&
+                    interaction.customId.startsWith("event_rules_")
+                  ) {
+                    const messageId = interaction.customId.replace("event_rules_", "");
+                    const eventData = eventAnnouncements.get(messageId);
+
+                    if (!eventData) {
+                      return interaction.reply({
+                        content: "❌ Event rules not found.",
+                        ephemeral: true
+                      });
+                    }
+
+                    const info = getBloxEventInfo(eventData.type);
+
+                    const embed = new EmbedBuilder()
+                      .setTitle(`📜 ${info.name} Rules`)
+                      .setColor(info.color)
+                      .setDescription(info.rules.map(rule => `• ${rule}`).join("\n"))
+                      .setFooter({ text: "Lunar Event Rules" })
+                      .setTimestamp();
+
+                    return interaction.reply({
+                      embeds: [embed],
+                      ephemeral: true
+                    });
                   }
                   // 📚 CASES PAGINATION
                   if (

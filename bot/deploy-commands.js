@@ -336,6 +336,109 @@ const commands = [
   .setName("appeal")
   .setDescription("Submit a giveaway ban appeal"),
   new SlashCommandBuilder()
+    .setName("event")
+    .setDescription("Blox Fruits event announcement system")
+    .addSubcommand(sub =>
+      sub
+        .setName("announce")
+        .setDescription("Announce a Blox Fruits event")
+        .addStringOption(option =>
+          option
+            .setName("type")
+            .setDescription("Event type")
+            .setRequired(true)
+            .addChoices(
+              { name: "Leviathan - Hydra", value: "levi_hydra" },
+              { name: "Leviathan - Tiki", value: "levi_tiki" },
+              { name: "Mirage Hunt", value: "mirage" },
+              { name: "Sea Beast", value: "sea_beast" },
+              { name: "Fools Gold", value: "fools_gold" },
+              { name: "Indra", value: "indra" },
+              { name: "Dough King", value: "dough_king" },
+              { name: "Prehistoric Island", value: "prehistoric" },
+              { name: "Kitsune Shrine", value: "kitsune" },
+              { name: "CD Removal", value: "cd_removal" },
+              { name: "Custom Event", value: "custom" }
+            )
+        )
+        .addStringOption(option =>
+          option
+            .setName("private_server")
+            .setDescription("Roblox private server link")
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+          option
+            .setName("time")
+            .setDescription("Event time, example: Now / 5 PM / after 10m")
+            .setRequired(true)
+        )
+        .addUserOption(option =>
+          option
+            .setName("host")
+            .setDescription("Event host")
+            .setRequired(false)
+        )
+        .addStringOption(option =>
+          option
+            .setName("slots")
+            .setDescription("Slots, example: 8/12")
+            .setRequired(false)
+        )
+        .addChannelOption(option =>
+          option
+            .setName("channel")
+            .setDescription("Announcement channel")
+            .setRequired(false)
+        )
+    )
+  .addSubcommand(sub =>
+    sub
+      .setName("edit")
+      .setDescription("Edit an active event announcement")
+      .addStringOption(option =>
+        option
+          .setName("messageid")
+          .setDescription("Event message ID")
+          .setRequired(true)
+      )
+      .addStringOption(option =>
+        option
+          .setName("time")
+          .setDescription("New event time")
+          .setRequired(false)
+      )
+      .addStringOption(option =>
+        option
+          .setName("private_server")
+          .setDescription("New Roblox private server link")
+          .setRequired(false)
+      )
+      .addStringOption(option =>
+        option
+          .setName("slots")
+          .setDescription("New slots, example: 8/12")
+          .setRequired(false)
+      )
+      .addUserOption(option =>
+        option
+          .setName("host")
+          .setDescription("New event host")
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(sub =>
+    sub
+      .setName("end")
+      .setDescription("End an active event announcement")
+      .addStringOption(option =>
+        option
+          .setName("messageid")
+          .setDescription("Event message ID")
+          .setRequired(true)
+      )
+  ),
+  new SlashCommandBuilder()
     .setName("health")
     .setDescription("Check bot health and configuration"),
   new SlashCommandBuilder()
