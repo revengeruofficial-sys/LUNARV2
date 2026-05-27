@@ -612,7 +612,40 @@ function buildEventEmbed(eventData) {
     })
     .setTimestamp();
 }
+ function buildEventComponents(eventData) {
+   if (eventData.status === "ended") {
+     return [
+       new ActionRowBuilder().addComponents(
+         new ButtonBuilder()
+           .setCustomId("event_closed")
+           .setLabel("Event Ended")
+           .setEmoji("🏁")
+           .setStyle(ButtonStyle.Secondary)
+           .setDisabled(true)
+       )
+     ];
+   }
 
+   const serverLink =
+     eventData.serverLink && eventData.serverLink.startsWith("http")
+       ? eventData.serverLink
+       : "https://www.roblox.com/";
+
+   return [
+     new ActionRowBuilder().addComponents(
+       new ButtonBuilder()
+         .setLabel("Join Roblox Server")
+         .setEmoji("🔗")
+         .setStyle(ButtonStyle.Link)
+         .setURL(serverLink),
+       new ButtonBuilder()
+         .setCustomId(`event_rules_${eventData.messageId}`)
+         .setLabel("Rules")
+         .setEmoji("📜")
+         .setStyle(ButtonStyle.Secondary)
+     )
+   ];
+ }
   // LEVEL SYSTEM
   function getUserLevel(member) {
     if (!member) return 0;
