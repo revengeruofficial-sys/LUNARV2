@@ -14,6 +14,9 @@ const DATA_FILE = process.env.DATA_FILE || "./data.json";
 const appealLogs = new Map();
 const staffActivity = new Map();
 const staffInactivityNotices = new Map();
+const inactivityExemptUsers = new Set([
+  "1258379692566642709" // RAJ - YouTube mod
+]);
 const afkUsers = new Map();
 let appealCounter = 0;
 let inactivityCounter = 0;
@@ -1523,6 +1526,7 @@ async function checkInactiveStaff() {
   let changed = false;
 
   for (const member of staffMembers.values()) {
+    if (inactivityExemptUsers.has(member.id)) continue;
     const approvedLeave = [...staffInactivityNotices.values()].find(req =>
       req.userId === member.id &&
       req.status === "Approved" &&
