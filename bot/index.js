@@ -511,74 +511,107 @@ async function sendStaffStrikeWarning(guild, userId, strikeId, reason, givenBy, 
                 return member.id === eventData.hostId || canHostEvent(member);
               }
 
-              function buildEventEmbed(eventData) {
-                const info = getBloxEventInfo(eventData.type);
+                function formatEventDuration(ms) {
+                  if (!ms || ms < 1000) return "Less than 1 minute";
 
-                return new EmbedBuilder()
-                  .setTitle(eventData.status === "ended" ? `🏁 ${info.title} Ended` : info.title)
-                  .setColor(eventData.status === "ended" ? 0xff3b3b : info.color)
-                  .addFields(
-                    { name: "🎮 Event", value: info.name, inline: true },
-                    { name: "📍 Location", value: info.location, inline: true },
-                    { name: "📌 Status", value: eventData.status === "ended" ? "🔴 Ended" : "🟢 Active", inline: true },
-                    { name: "👑 Host", value: `<@${eventData.hostId}>`, inline: true },
-                    { name: "⏰ Time", value: eventData.time, inline: true },
-                    { name: "👥 Slots", value: eventData.slots || "Not specified", inline: true }
-                  )
-                  .setFooter({ text: "Lunar Blox Fruits Event System" })
-                  .setTimestamp();
-              }
+                  const totalSeconds = Math.floor(ms / 1000);
+                  const hours = Math.floor(totalSeconds / 3600);
+                  const minutes = Math.floor((totalSeconds % 3600) / 60);
+                  const seconds = totalSeconds % 60;
 
-              function buildEventComponents(eventData) {
-                if (eventData.status === "ended") {
-                  return [
-                    new ActionRowBuilder().addComponents(
-                      new ButtonBuilder()
-                        .setCustomId("event_closed")
-                        .setLabel("Event Ended")
-                        .setEmoji("🏁")
-                        .setStyle(ButtonStyle.Secondary)
-                        .setDisabled(true)
-                    )
-                  ];
+                  const parts = [];
+                  if (hours) parts.push(`${hours}h`);
+                  if (minutes) parts.push(`${minutes}m`);
+                  if (!hours && seconds) parts.push(`${seconds}s`);
+
+                  return parts.join(" ");
                 }
 
-                return [
-                  new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                      .setLabel("Join Roblox Server")
-                      .setEmoji("🔗")
-                      .setStyle(ButtonStyle.Link)
-                      .setURL(eventData.serverLink),
-                    new ButtonBuilder()
-                      .setCustomId(`event_rules_${eventData.messageId}`)
-                      .setLabel("Rules")
-                      .setEmoji("📜")
-                      .setStyle(ButtonStyle.Secondary)
-                  )
-                ];
-              }
-              function getTodayKey() {
-                return new Intl.DateTimeFormat("en-CA", {
-                  timeZone: "Asia/Kolkata",
-                  year: "numeric",
-                  month: "2-digit",
-                  day: "2-digit"
-                }).format(new Date());
-              }
+                function getEventResultText(result) {
+                  if (result === "successful") return "✅ Successful";
+                  if (result === "partial") return "🟣 Partially Successful";
+                  if (result === "unsuccessful") return "❌ Unsuccessful";
+                  return "🟢 Active";
+                }
 
-              function isStaffMember(member) {
-                if (!member) return false;
+                function getEventResultColor(result, fallbackColor) {
+                  if (result === "successful") return 0x57f287;
+                  if (result === "partial") return 0x9b59ff;
+                  if (result === "unsuccessful") return 0xed4245;
+                  return fallbackColor;
+                }
+function buildEventEmbed(eventData) {
+  const info = getBloxEventInfo(eventData.type);
+  const isEnded = eventData.status === "ended";
+  const startedAt = eventData.startedAt || eventData.createdAt || Date.now();
+  const endedAt = eventData.endedAt || Date.now();
+  const duration = formatEventDuration((isEnded ? endedAt : Date.now()) - startedAt);
+  const resultText = isEnded
+    ? getEventResultText(eventData.result)
+    : "🟢 Active";
 
-                return (
-                  member.roles.cache.has(ROLES.trial) ||
-                  member.roles.cache.has(ROLES.mod) ||
-                  member.roles.cache.has(ROLES.headmod) ||
-                  member.roles.cache.has(ROLES.admin) ||
-                  member.roles.cache.has(ROLES.owner) ||
-                  member.roles.cache.has(ROLES.ultimate)
-                );
-              }
+  return new EmbedBuilder()
+    .setTitle(isEnded ? `🏁 ${info.title} Ended` : `🌙 ${info.title}`)
+    .setColor(isEnded ? getEventResultColor(eventData.result, info.color) : info.color)
+    .setDescription(
+      "━━━━━━━━━━━━━━━━━━━━\n" +
+      `🎮 **Event:** **${info.name}**\n` +
+      `🌊 **Sea:** **${eventData.sea || "Not specified"}**\n` +
+      `📌 **Status:** **${resultText}**\n` +
+      "━━━━━━━━━━━━━━━━━━━━"
+    )
+    .addFields(
+      {
+        name: "👑 **Host**",
+        value: `<@${eventData.hostId}>`,
+        inline: true
+      },
+      {
+        name: "👥 **Slots**",
+        value: `**${eventData.slots || "Not specified"}**`,
+        inline: true
+      },
+      {
+        name: isEnded ? "⏱️ **Duration**" : "⏱️ **Running For**",
+        value: `**${duration}**`,
+        inline: true
+      },
+      {
+        name: "🟢 **Started At**",
+        value: `<t:${Math.floor(startedAt / 1000)}:f>`,
+        inline: true
+      },
+      {
+        name: isEnded ? "🔴 **Ended At**" : "📡 **Live Since**",
+        value: isEnded
+          ? `<t:${Math.floor(endedAt / 1000)}:f>`
+          : `<t:${Math.floor(startedAt / 1000)}:R>`,
+        inline: true
+      },
+      {
+        name: "📜 **Main Rules**",
+        value:
+          "• **Be Marine**\n" +
+          "• **No scripters / exploiters**\n" +
+          "• **Do not start anything without host permission**\n" +
+          "• **Cooperate with the host**",
+        inline: false
+      },
+      {
+        name: "🔗 **Private Server**",
+        value: isEnded
+          ? "**Event ended. Server link closed.**"
+          : "**Use the button below to join the Roblox private server.**",
+        inline: false
+      }
+    )
+    .setFooter({
+      text: isEnded
+        ? "Lunar Event System • Event Closed"
+        : "Lunar Event System • Blox Fruits Event Live"
+    })
+    .setTimestamp();
+}
 
   // LEVEL SYSTEM
   function getUserLevel(member) {
@@ -4882,7 +4915,7 @@ client.on("ready", () => {
 
                       const type = interaction.options.getString("type");
                       const serverLink = interaction.options.getString("private_server");
-                      const time = interaction.options.getString("time");
+                      const sea = interaction.options.getString("sea");
                       const host = interaction.options.getUser("host") || interaction.user;
                       const slots = interaction.options.getString("slots") || "Not specified";
                       const targetChannel = interaction.options.getChannel("channel") || interaction.channel;
@@ -4890,11 +4923,12 @@ client.on("ready", () => {
                       const eventData = {
                         type,
                         serverLink,
-                        time,
+                        sea,
                         hostId: host.id,
                         slots,
                         status: "active",
                         createdAt: Date.now(),
+                        startedAt: Date.now(),
                         createdBy: interaction.user.id,
                         channelId: targetChannel.id,
                         messageId: null
@@ -4938,12 +4972,12 @@ client.on("ready", () => {
                         });
                       }
 
-                      const newTime = interaction.options.getString("time");
+                      const newSea = interaction.options.getString("sea");
                       const newServerLink = interaction.options.getString("private_server");
                       const newSlots = interaction.options.getString("slots");
                       const newHost = interaction.options.getUser("host");
 
-                      if (newTime) eventData.time = newTime;
+                      if (newSea) eventData.sea = newSea;
                       if (newServerLink) eventData.serverLink = newServerLink;
                       if (newSlots) eventData.slots = newSlots;
                       if (newHost) eventData.hostId = newHost.id;
@@ -4969,6 +5003,7 @@ client.on("ready", () => {
 
                     if (sub === "end") {
                       const messageId = interaction.options.getString("messageid");
+                      const result = interaction.options.getString("result");
                       const eventData = eventAnnouncements.get(messageId);
 
                       if (!eventData) {
@@ -4986,6 +5021,7 @@ client.on("ready", () => {
                       }
 
                       eventData.status = "ended";
+                      eventData.result = result;
                       eventData.endedAt = Date.now();
                       eventData.endedBy = interaction.user.id;
 

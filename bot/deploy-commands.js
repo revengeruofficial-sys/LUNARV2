@@ -367,12 +367,17 @@ const commands = [
             .setDescription("Roblox private server link")
             .setRequired(true)
         )
-        .addStringOption(option =>
-          option
-            .setName("time")
-            .setDescription("Event time, example: Now / 5 PM / after 10m")
-            .setRequired(true)
-        )
+      .addStringOption(option =>
+        option
+          .setName("sea")
+          .setDescription("Which sea is this event in?")
+          .setRequired(true)
+          .addChoices(
+            { name: "Sea 1", value: "Sea 1" },
+            { name: "Sea 2", value: "Sea 2" },
+            { name: "Sea 3", value: "Sea 3" }
+          )
+      )
         .addUserOption(option =>
           option
             .setName("host")
@@ -402,12 +407,17 @@ const commands = [
           .setDescription("Event message ID")
           .setRequired(true)
       )
-      .addStringOption(option =>
-        option
-          .setName("time")
-          .setDescription("New event time")
-          .setRequired(false)
-      )
+    .addStringOption(option =>
+      option
+        .setName("sea")
+        .setDescription("Update event sea")
+        .setRequired(false)
+        .addChoices(
+          { name: "Sea 1", value: "Sea 1" },
+          { name: "Sea 2", value: "Sea 2" },
+          { name: "Sea 3", value: "Sea 3" }
+        )
+    )
       .addStringOption(option =>
         option
           .setName("private_server")
@@ -437,6 +447,17 @@ const commands = [
           .setDescription("Event message ID")
           .setRequired(true)
       )
+                 .addStringOption(option =>
+                   option
+                     .setName("result")
+                     .setDescription("Event result")
+                     .setRequired(true)
+                     .addChoices(
+                       { name: "Successful", value: "successful" },
+                       { name: "Partially Successful", value: "partial" },
+                       { name: "Unsuccessful", value: "unsuccessful" }
+                     )
+                 )
   ),
   new SlashCommandBuilder()
     .setName("health")
