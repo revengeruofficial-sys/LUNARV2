@@ -572,8 +572,10 @@ function buildEventEmbed(eventData) {
         inline: true
       },
       {
-        name: isEnded ? "⏱️ **Duration**" : "⏱️ **Running For**",
-        value: `**${duration}**`,
+        name: isEnded ? "⏱️ **Duration**" : "⏱️ **Live For**",
+        value: isEnded
+          ? `**${duration}**`
+          : `<t:${Math.floor(startedAt / 1000)}:R>`,
         inline: true
       },
       {
