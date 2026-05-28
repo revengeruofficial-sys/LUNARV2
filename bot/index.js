@@ -1296,6 +1296,13 @@ function buildHelpActionRow() {
           }
         ];
 
+        fields.push({
+          name: "🔁 Auto Reroll",
+          value: g.autoReroll
+            ? `Enabled • ${formatDuration(g.rerollTime || 0)}`
+            : "Disabled • Manual reroll required",
+          inline: false
+        });
         if (requirementText) {
           fields.push({
             name: "📋 Requirements",
@@ -3249,6 +3256,8 @@ client.on("ready", () => {
                         entryMap: {},
                         winnerCount,
                     claimTime,
+                        autoReroll: false,
+                        rerollTime: 0,
                         endAt: Date.now() + duration,
                     prize, // 🔥 ADD THIS
                         channel: message.channel,
@@ -5384,6 +5393,8 @@ client.on("ready", () => {
                       users: [],
                       entryMap: {},
                       claimTime,
+                      autoReroll: false,
+                      rerollTime: 0,
                       endAt: Date.now() + duration,
                       prize,
                       requiredDaily: 0,
@@ -6451,6 +6462,19 @@ client.on("ready", () => {
                          interaction.options.getString("claimtime") || "30s";
 
                        const claimTime = parseTime(claimInput);
+                        const autoReroll =
+                          interaction.options.getBoolean("auto_reroll") ?? false;
+
+                        const rerollInput =
+                          interaction.options.getString("reroll_time") || "0s";
+
+                        const rerollTime = parseTime(rerollInput) || 0;
+
+                        if (autoReroll && (!rerollTime || isNaN(rerollTime) || rerollTime < 1000)) {
+                          return interaction.editReply({
+                            content: "❌ Auto reroll time must be like `1m`, `2m`, or `5m`."
+                          });
+                        }
 
                        if (!claimTime || isNaN(claimTime) || claimTime < 1000) {
                          return interaction.editReply({
@@ -6627,6 +6651,8 @@ client.on("ready", () => {
                         winnerCount: winners,
 
                         claimTime,
+                          autoReroll,
+                          rerollTime,
 
 
                         prize,
@@ -7518,6 +7544,8 @@ client.on("ready", () => {
                         winnerCount: draft.winners,
 
                         claimTime: 30000,
+                        autoReroll: false,
+                        rerollTime: 0,
                         endAt: Date.now() + duration,
 
                         prize: draft.prize,
@@ -9267,11 +9295,30 @@ client.on("ready", () => {
                     saveData();
 
                     const giveawayChannel = await getGiveawayChannel(g);
-                    if (giveawayChannel) {
-                      await giveawayChannel.send("❌ Not claimed → Rerolling...");
+
+                    if (!g.autoReroll) {
+                      if (giveawayChannel) {
+                        await giveawayChannel.send(
+                          `❌ <@${userId}> did not claim in time. Manual reroll required: \`.greroll ${giveawayId}\``
+                        );
+                      }
+
+                      return;
                     }
 
-                    await reroll(g, giveawayId);
+                    const rerollDelay = g.rerollTime || 0;
+
+                    if (giveawayChannel) {
+                      await giveawayChannel.send(
+                        rerollDelay > 0
+                          ? `❌ <@${userId}> did not claim. Auto rerolling in **${formatDuration(rerollDelay)}**...`
+                          : `❌ <@${userId}> did not claim. Auto rerolling...`
+                      );
+                    }
+
+                    setTimeout(async () => {
+                      await reroll(g, giveawayId);
+                    }, rerollDelay);
                   }
                 }, g.claimTime);
               }

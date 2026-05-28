@@ -91,7 +91,21 @@ const commands = [
         )
         .setRequired(false)
     )
+    // 🔁 AUTO REROLL
+    .addBooleanOption(option =>
+      option
+        .setName("auto_reroll")
+        .setDescription("Auto reroll unclaimed winners?")
+        .setRequired(false)
+    )
 
+    // ⏳ REROLL TIME
+    .addStringOption(option =>
+      option
+        .setName("reroll_time")
+        .setDescription("Auto reroll delay after claim fail: 1m, 2m, 5m")
+        .setRequired(false)
+    )
       // 👤 HOST
       .addUserOption(option =>
         option
