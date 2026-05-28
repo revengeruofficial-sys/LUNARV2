@@ -1281,11 +1281,7 @@ function buildHelpActionRow() {
                 inline: false
               }]
             : []),
-          {
-            name: "🎟️ Entries",
-            value: `${g.users?.length || 0}`,
-            inline: false
-          },
+          
           {
             name: "🎁 Extra Entries",
             value:
@@ -2632,9 +2628,15 @@ client.on("ready", () => {
                       )
                       .setTimestamp();
 
-                  await message.channel.send({
-                    embeds: [embed]
-                  }).catch(() => {});
+                    const warnMsg = await message.channel.send({
+                      embeds: [embed]
+                    }).catch(() => null);
+
+                    if (warnMsg) {
+                      setTimeout(() => {
+                        warnMsg.delete().catch(() => {});
+                      }, 10000);
+                    }
 
                   // 📢 LOG CHANNEL
                   const logChannel =
@@ -2685,10 +2687,16 @@ client.on("ready", () => {
                     .setFooter({ text: "Lunar Ping Protection" })
                     .setTimestamp();
 
-                  await message.reply({
+                  const warnMsg = await message.reply({
                     embeds: [embed],
                     allowedMentions: { repliedUser: false, parse: [] }
-                  }).catch(() => {});
+                  }).catch(() => null);
+
+                  if (warnMsg) {
+                    setTimeout(() => {
+                      warnMsg.delete().catch(() => {});
+                    }, 10000);
+                  }
 
                   return;
                 }
@@ -6567,10 +6575,10 @@ client.on("ready", () => {
                             .setStyle(ButtonStyle.Primary),
 
                             new ButtonBuilder()
-                              .setCustomId("participants")
-                              .setLabel("Participants")
-                              .setEmoji("👥")
-                              .setStyle(ButtonStyle.Secondary)
+                            .setCustomId("participants")
+                            .setLabel("0 Entries")
+                            .setEmoji("🎟️")
+                            .setStyle(ButtonStyle.Secondary)
                           );
 
                         const embed =
@@ -7479,9 +7487,10 @@ client.on("ready", () => {
                             .setStyle(ButtonStyle.Primary),
 
                           new ButtonBuilder()
-                            .setCustomId("participants")
-                            .setLabel("👥 Participants")
-                            .setStyle(ButtonStyle.Secondary)
+                          .setCustomId("participants")
+                          .setLabel("0 Entries")
+                          .setEmoji("🎟️")
+                          .setStyle(ButtonStyle.Secondary)
                         );
 
                       let roleText = "None";
@@ -7596,59 +7605,99 @@ client.on("ready", () => {
                     }
                   }
 
-                  // 👥 PARTICIPANTS BUTTON
+                  // 🎟️ ENTRIES LIST BUTTON
                   if (
                     interaction.isButton() &&
-                    interaction.customId === "participants"
+                    (
+                      interaction.customId === "participants" ||
+                      interaction.customId.startsWith("gwy_entries_")
+                    )
                   ) {
+                    const parts = interaction.customId.split("_");
 
-                    const g =
-                      giveaways.get(interaction.message.id);
+                    const giveawayId =
+                      interaction.customId === "participants"
+                        ? interaction.message.id
+                        : parts[2];
 
-                    if (!g) return;
+                    let page =
+                      interaction.customId === "participants"
+                        ? 0
+                        : Number(parts[3] || 0);
 
-                    const users = g.users || [];
+                    const g = giveaways.get(giveawayId);
 
-                    let list = "No participants yet.";
-
-                    if (users.length > 0) {
-
-                      list = users
-                      .slice(0, 20)
-                      .map((u, i) => {
-
-                        const amount =
-                          g.entryMap[u] || 1;
-
-                        return (
-                          `${i + 1}. <@${u}> - ` +
-                          `${amount} entries`
-                        );
-                      })
-                      .join("\n");
+                    if (!g) {
+                      return interaction.reply({
+                        content: "❌ Giveaway not found.",
+                        ephemeral: true
+                      });
                     }
 
-                    const embed =
-                      new EmbedBuilder()
-                        .setTitle("👥 Giveaway Participants")
-                        .setColor(0x5865f2)
-                        .addFields(
-                          {
-                            name: "📊 Total Participants",
-                            value: `${users.length}`,
-                            inline: false
-                          },
-                          {
-                            name: "📝 Participant List",
-                            value: list,
-                            inline: false
-                          }
-                        )
-                        .setTimestamp();
+                    const users = g.users || [];
+                    const perPage = 10;
+                    const totalPages = Math.max(1, Math.ceil(users.length / perPage));
 
-                    return interaction.reply({
+                    page = Math.max(0, Math.min(page, totalPages - 1));
+
+                    const start = page * perPage;
+                    const pageUsers = users.slice(start, start + perPage);
+
+                    const list = pageUsers.length
+                      ? pageUsers.map((u, i) => {
+                          const amount = g.entryMap?.[u] || 1;
+                          return `**${start + i + 1}.** <@${u}> • **${amount} entries**`;
+                        }).join("\n")
+                      : "No entries yet.";
+
+                    const embed = new EmbedBuilder()
+                      .setTitle("🎟️ Giveaway Entries")
+                      .setColor(0x5865f2)
+                      .addFields(
+                        {
+                          name: "📊 Total Entries",
+                          value: `${users.length}`,
+                          inline: true
+                        },
+                        {
+                          name: "📄 Page",
+                          value: `${page + 1}/${totalPages}`,
+                          inline: true
+                        },
+                        {
+                          name: "📝 Entry List",
+                          value: list,
+                          inline: false
+                        }
+                      )
+                      .setFooter({ text: "Lunar Giveaway Entries" })
+                      .setTimestamp();
+
+                    const row = new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId(`gwy_entries_${giveawayId}_${page - 1}`)
+                        .setLabel("Previous")
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(page <= 0),
+
+                      new ButtonBuilder()
+                        .setCustomId(`gwy_entries_${giveawayId}_${page + 1}`)
+                        .setLabel("Next")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(page >= totalPages - 1)
+                    );
+
+                    if (interaction.customId === "participants") {
+                      return interaction.reply({
+                        embeds: [embed],
+                        components: [row],
+                        ephemeral: true
+                      });
+                    }
+
+                    return interaction.update({
                       embeds: [embed],
-                      ephemeral: true
+                      components: [row]
                     });
                   }
 
@@ -7928,10 +7977,10 @@ client.on("ready", () => {
                         .setStyle(ButtonStyle.Primary),
 
                       new ButtonBuilder()
-                        .setCustomId("participants")
-                        .setEmoji("👥")
-                        .setLabel("Participants")
-                        .setStyle(ButtonStyle.Secondary)
+                      .setCustomId("participants")
+                      .setEmoji("🎟️")
+                      .setLabel(`${entryCount} Entries`)
+                      .setStyle(ButtonStyle.Secondary)
                     );
 
                     await interaction.update({
@@ -8712,10 +8761,10 @@ client.on("ready", () => {
                         .setStyle(ButtonStyle.Primary),
 
                       new ButtonBuilder()
-                        .setCustomId("participants")
-                        .setEmoji("👥")
-                        .setLabel("Participants")
-                        .setStyle(ButtonStyle.Secondary)
+                      .setCustomId("participants")
+                      .setLabel("0 Entries")
+                      .setEmoji("🎟️")
+                      .setStyle(ButtonStyle.Secondary)
                     );
 
                     await msg.edit({
