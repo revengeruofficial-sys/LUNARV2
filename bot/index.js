@@ -6653,6 +6653,46 @@ client.on("ready", () => {
                           embeds: [embed],
                           components: [row]
                         });
+                       const requirementLines = [];
+
+                       if (requiredDaily && requiredDaily > 0) {
+                         requirementLines.push(`- **${requiredDaily} daily messages required**`);
+                       }
+
+                       if (requiredWeekly && requiredWeekly > 0) {
+                         requirementLines.push(`- **${requiredWeekly} weekly messages required**`);
+                       }
+
+                       if (requiredMonthly && requiredMonthly > 0) {
+                         requirementLines.push(`- **${requiredMonthly} monthly messages required**`);
+                       }
+
+                       if (requiredRole) {
+                         requirementLines.push(`- Required Role: <@&${requiredRole.id}>`);
+                       }
+
+                       await channel.send({
+                         content:
+                           `# <@&1379722620756299776> A giveaway is GOING ON check it out\n` +
+                           `- || <@&1379722620756299776> ||\n` +
+                           `- **GO ACTIVE IN CHAT FOR EXTRA CHANCE OF WINNING**\n` +
+                           `- <#1318168240383594527>\n` +
+                           `- Users without <@&1453003575860006972> Can't Win\n` +
+                           `- Users on Giveaway Cooldown Cant Win\n` +
+                           `- 2 Days Giveaway Cooldown Before an Individual can win another giveaway.\n` +
+                           (
+                             requirementLines.length
+                               ? `\n**Giveaway Requirements**\n${requirementLines.join("\n")}\n`
+                               : ""
+                           ) +
+                           `\n🎁 Giveaway: ${msg.url}`,
+                         allowedMentions: {
+                           roles: [
+                             "1379722620756299776",
+                             "1453003575860006972"
+                           ]
+                         }
+                       }).catch(() => {});
 
                         giveaways.set(msg.id, {
 
